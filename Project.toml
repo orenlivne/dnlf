@@ -1,0 +1,18 @@
+name = "DNLF"
+uuid = "ea7c8b8c-1290-4539-b413-259d2d8016cd"
+version = "0.1.0-dev"
+authors = ["Oren Livne <oren.livne@gmail.com>"]
+
+[deps]
+NLF = "cef77db7-f4e9-4a08-a19e-0d28163d44d4"
+LAMG = "5a7e4c11-0000-4a1e-9c2f-1a2b3c4d5e6f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[sources]
+NLF = {url = "https://github.com/orenlivne/nlf"}
+LAMG = {url = "https://github.com/orenlivne/lamgplus"}
+
+[compat]
+julia = "1.10"

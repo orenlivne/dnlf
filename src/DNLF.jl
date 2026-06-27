@@ -20,7 +20,7 @@ module DNLF
 using NLF                       # the dependency chain: DNLF → NLF → LAMG+ (NLF re-exports LAMG)
 using LinearAlgebra, SparseArrays, Printf
 
-export DirectedNetwork, load_tntp_net, solve_ue, frank_wolfe
+export DirectedNetwork, load_tntp_net, solve_ue, frank_wolfe, tstt, toll_gradient, adjoint_grad
 
 "Directed network with separable BPR arc costs `t_a(f) = t⁰(1 + b (f/c)^p)`."
 struct DirectedNetwork
@@ -67,7 +67,7 @@ function arc_psi(N, a, g)                            # ψ_a(g)=∫_0^g ρ_a = g 
     Tf = N.t0[a]*f + N.t0[a]*N.b[a]/(N.p[a]+1)*f*(f/N.cap[a])^N.p[a] + REG*N.t0[a]/(2N.cap[a])*f^2
     g*f - Tf
 end
-energy(N, φ, d) = sum(arc_psi(N, a, φ[N.ini[a]] - φ[N.ter[a]]) for a in 1:N.m) - dot(d, φ)
+energy(N, φ, d, τ) = sum(arc_psi(N, a, φ[N.ini[a]] - φ[N.ter[a]] - τ[a]) for a in 1:N.m) - dot(d, φ)
 
 sp_to_sink(N, s) = begin                             # free-flow shortest-path potentials (warm start)
     φ = fill(Inf, N.n); φ[s] = 0.0
@@ -84,30 +84,53 @@ Single-commodity directed UE: route demand `D` from `r` to `s` by NLF-style damp
 the rectified edge law, with an energy (Armijo) line search and load continuation. Returns node
 potentials `φ`, arc flows `f ≥ 0`, and total Newton steps.
 """
-function solve_ue(N::DirectedNetwork, r, s, D; loads = 0.05:0.05:1.0, nmax = 200, tol = 1e-9)
-    φ = sp_to_sink(N, s); keep = setdiff(1:N.n, s)   # pin the sink
+function solve_ue(N::DirectedNetwork, r, s, D; tolls = zeros(N.m), init = nothing,
+                  loads = 0.05:0.05:1.0, nmax = 200, tol = 1e-9)
+    φ = init === nothing ? sp_to_sink(N, s) : copy(init)
+    keep = setdiff(1:N.n, s)                          # pin the sink
+    ls = init === nothing ? loads : (1.0,)            # warm start -> skip load continuation
     f = zeros(N.m); dρ = zeros(N.m); tot = 0
-    for ℓ in loads
+    for ℓ in ls
         d = zeros(N.n); d[r] = ℓ*D; d[s] = -ℓ*D
         for _ in 1:nmax
             tot += 1
-            @inbounds for a in 1:N.m; (f[a], dρ[a]) = rho(N, a, φ[N.ini[a]] - φ[N.ter[a]]); end
+            @inbounds for a in 1:N.m; (f[a], dρ[a]) = rho(N, a, φ[N.ini[a]] - φ[N.ter[a]] - tolls[a]); end
             R = -(N.B*f) - d                          # = grad E
             norm(R[keep]) < tol*max(ℓ*D, 1) && break
             dρf = max.(dρ, 1e-6 * maximum(dρ; init = 1.0))   # floor keeps J a connected Laplacian
             J = N.B*spdiagm(0 => dρf)*N.B'
             δ = zeros(N.n); δ[keep] = J[keep, keep] \ (-R[keep])     # (LAMG+ is the inner solve at scale)
-            E0 = energy(N, φ, d); slope = dot(R[keep], δ[keep]); τ = 1.0; moved = false
+            E0 = energy(N, φ, d, tolls); slope = dot(R[keep], δ[keep]); α = 1.0; moved = false
             for _ in 1:60
-                φt = copy(φ); φt[keep] .+= τ.*δ[keep]
-                if energy(N, φt, d) <= E0 + 1e-4*τ*slope; φ = φt; moved = true; break; end
-                τ *= 0.5
+                φt = copy(φ); φt[keep] .+= α.*δ[keep]
+                if energy(N, φt, d, tolls) <= E0 + 1e-4*α*slope; φ = φt; moved = true; break; end
+                α *= 0.5
             end
             moved || break
         end
     end
-    @inbounds for a in 1:N.m; f[a] = rho(N, a, φ[N.ini[a]] - φ[N.ter[a]])[1]; end
+    @inbounds for a in 1:N.m; f[a] = rho(N, a, φ[N.ini[a]] - φ[N.ter[a]] - tolls[a])[1]; end
     φ, f, tot
+end
+
+# ---------------- design optimization: TSTT + its ADJOINT gradient w.r.t. tolls ----------------
+"Total system travel time  Σ_a t_a(f_a) f_a  (tolls are transfers, excluded)."
+tstt(N::DirectedNetwork, f) = sum(tcost(N, a, f[a])*f[a] for a in 1:N.m)
+
+"∇_τ TSTT given a solved equilibrium (φ, f) — one adjoint Laplacian solve, for ALL tolls."
+function adjoint_grad(N::DirectedNetwork, s, φ, f, tolls)
+    keep = setdiff(1:N.n, s)
+    ρ′ = [rho(N, a, φ[N.ini[a]] - φ[N.ter[a]] - tolls[a])[2] for a in 1:N.m]
+    mc = [tcost(N, a, f[a]) + f[a]*dcost(N, a, f[a]) for a in 1:N.m]   # marginal cost m_a
+    w  = mc .* ρ′
+    J  = N.B*spdiagm(0 => max.(ρ′, 1e-6*maximum(ρ′; init = 1.0)))*N.B'
+    λ  = zeros(N.n); λ[keep] = J[keep, keep] \ (-(N.B*w))[keep]        # the ONE adjoint solve
+    -ρ′ .* (mc .+ (N.B'*λ))                                           # ∇_τ TSTT over ALL links
+end
+
+function toll_gradient(N::DirectedNetwork, r, s, D; tolls = zeros(N.m))
+    φ, f, steps = solve_ue(N, r, s, D; tolls = tolls)
+    tstt(N, f), adjoint_grad(N, s, φ, f, tolls), φ, f, steps
 end
 
 "Independent Frank–Wolfe UE oracle (shortest-path / all-or-nothing) for validation."

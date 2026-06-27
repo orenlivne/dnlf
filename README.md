@@ -42,14 +42,40 @@ oracle:
 VERDICT: directed UE solved on the NLF stack; matches FW; Wardrop satisfied.
 ```
 
-So the extension is **feasible**. Honest scope (see notes §8): this is **framework completion + a
-capability** (NLF returns the full flow-vs-demand curve, sensitivities, and binding-routing structure,
-not just one equilibrium) — **not** a speed moat. On road networks the SOTA (bush-based TAPAS /
-Algorithm B) is excellent and roads are planar (direct's home turf), so the "only solver" result of the
-undirected paper does **not** replicate here.
+So the extension is **feasible**. Crucially, the **value is in design optimization** — the real use
+case, not the forward solve.
 
-**Roadmap:** (1) full OD multicommodity; (2) same-instance validation vs tap-b to relgap 1e-8;
-(3) scale study; (4) the asymmetric-cost variational inequality (non-symmetric inner solve).
+## Why DNLF: orders-of-magnitude-cheaper design gradients
+
+Real network problems are *bilevel*: pick a design `x` (link **tolls**, the **OD demand** to calibrate,
+**capacities** to add) to optimize an objective subject to the equilibrium `f(x)`. The load-bearing
+object is the gradient `df/dx`. A SOTA equilibrium solver returns **no derivatives**, so you either
+hand-build a problem-specific sensitivity method (Tobin–Friesz / Spiess) or fall back to a
+derivative-free loop — **one full equilibrium re-solve per design variable**. DNLF gets the gradient
+over *all* design variables from **one adjoint Laplacian solve** (the same symmetric Jacobian) — natively
+and in near-linear time, because the equilibrium is `Bρ(Bᵀφ)=αd`.
+
+[`examples/toll_design_sioux.jl`](examples/toll_design_sioux.jl) — optimal congestion pricing
+(minimize total travel time over tolls). The adjoint gradient matches finite differences to FD
+truncation, and optimal tolls cut total travel time **5.79%**. [`examples/toll_design_scaling.jl`](examples/toll_design_scaling.jl)
+— the cost of one full design gradient:
+
+| network | tollable links `k` | DNLF adjoint | derivative-free loop | speedup |
+|---|---|---|---|---|
+| SiouxFalls | 76 | 1 solve (0.00002 s) | 2·k solves (0.006 s) | **360×** |
+| Anaheim | 914 | 1 solve (0.00014 s) | 2·k solves (237 s) | **~1.6 × 10⁶×** |
+
+The adjoint is **one Laplacian solve regardless of `k`**; the loop is `O(k)` equilibrium solves — so the
+speedup scales with the number of design variables (thousands of links at city scale, **millions** of OD
+entries for matrix calibration). *Honest note:* both sides here use DNLF's own UE solver; a faster
+bush-based solver in the loop would shrink the absolute multiplier, but the `O(k)` factor is
+unavoidable, so it stays orders of magnitude. This — not the forward solve — is where DNLF earns its
+keep: on planar road networks the bush-based SOTA (TAPAS / Algorithm B) owns the forward problem, but it
+cannot supply the cheap exact gradients that bilevel design needs.
+
+**Roadmap:** (1) full OD multicommodity; (2) same-instance forward validation vs tap-b to relgap 1e-8;
+(3) larger design studies (Chicago / Austin, OD calibration); (4) the asymmetric-cost variational
+inequality (non-symmetric inner solve, LAMG+ as preconditioner).
 
 ## Requirements
 

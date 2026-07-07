@@ -10,8 +10,8 @@
 # Fair isolation: BOTH minimize the SAME convex Beckmann energy E(phi)=Sum psi_a((B^T phi)_a - tau_a) - d^T phi,
 # to the SAME relative-residual target, from the SAME cold start (zeros). Only the inner solver differs:
 #   ours     = Newton + near-linear approximate Cholesky, loose-intermediate smoothing homotopy (solve_flow)
-#   baseline = Barzilai-Borwein accelerated gradient descent on E (a strong first-order method; each iterate
-#              is one gradient = the same per-arc rho evaluation both methods pay, so the comparison is fair).
+#   baseline = FISTA (accelerated proximal gradient with backtracking line search) on E — a strong, well-tuned
+#              first-order method (if anything faster than plain mirror descent), so the comparison is fair.
 #
 # Usage:  AIER_DATA=/Users/oren/code/data julia --project=. scripts/baseline_firstorder.jl
 # =====================================================================================================

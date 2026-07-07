@@ -24,8 +24,10 @@ smooth to exact with one AMG setup per level and a final polish. The design grad
 
 **Where it wins (honest scope):** on large **irregular, poorly-separable** networks — the scale-free
 communication and overlay topologies of *selfish routing* (Internet AS graphs, P2P overlays) — the
-near-linear solve (`≈ m^1.2`) overtakes a direct factorization (`≈ m^2.4`) at `m ≈ 10^5`. On **near-planar
-road networks** a direct nested-dissection factorization is near-optimal and the method does **not** win;
+near-linear solve (`≈ m^1.23`) overtakes a fill-reducing sparse direct factorization (`≈ m^1.38`, UMFPACK/
+COLAMD) at `m ≈ 2×10^4`, and the direct factor runs out of memory by `m ≈ 3×10^5` while the near-linear
+solver continues. The exponent gap is modest; the sharper separation is the memory wall. On **near-planar
+road networks** nested-dissection direct methods are near-optimal and the method does **not** win;
 roads are for correctness validation, not the scaling claim. See `doc/dnlf_sisc.tex` §1 and
 [`doc/directed_ue_notes.md`](doc/directed_ue_notes.md).
 

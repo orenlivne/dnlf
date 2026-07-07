@@ -166,10 +166,12 @@ inactive (dead-zone) arcs. \qed
 
 \Cref{prop:laplacian} is the structural fact this paper rests on: directedness enters only through \emph{which}
 arcs are active (a routing boundary), not through the type of the linear operator. Every linearized solve is a
-graph-Laplacian solve, so a near-linear Laplacian engine applies. The multicommodity generalization keeps the
-same structure: with $f_a=\sum_k f_a^k$ and a cost of the total flow, the per-arc block Hessian is
-$t'_a\,\mathbf{1}\mathbf{1}^\top$, symmetric, so the block system is again a Laplacian; we return to this in
-\cref{sec:conclusion}.
+graph-Laplacian solve, so a near-linear Laplacian engine applies. This is complete for the single-commodity
+equilibrium treated here (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
+($f_a=\sum_k f_a^k$ with a cost of the total flow) preserves symmetry---the per-arc block coupling is
+$t'_a\,\mathbf{1}\mathbf{1}^\top$---but the coupled block system is Laplacian-plus-low-rank per arc rather than a
+plain Laplacian, and whether a near-linear engine handles it efficiently is open; we therefore scope the
+near-linear claim to the single-commodity case and treat multicommodity as future work (\cref{sec:conclusion}).
 
 \section{A near-linear equilibrium solver}\label{sec:solver}
 We solve \cref{eq:nlf} by damped chord-Newton on the frozen-linearization Jacobian $J$, delegating each
@@ -320,8 +322,8 @@ warm-start the next level). This cuts the Newton-step count with no change to th
 algebraic-multigrid setups bounded (one per $\delta$-level) and independent of size. On size-scaled irregular
 (poorly-separable) congested networks the equilibrium wall-clock then scales near-linearly, $t\propto m^{1.23}$,
 while the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto
-m^{1.38}$ (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a nested-dissection factorization grows faster
-than the graph on a poorly-separable topology. The near-linear solver overtakes the direct one at $m\approx
+m^{1.38}$ (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization
+(UMFPACK with COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear solver overtakes the direct one at $m\approx
 2\times10^{4}$ edges ($n\approx2\times10^3$), beyond which it is faster with a slowly widening margin---about
 $1.6\times$ at $m=1.6\times10^5$ ($110$ vs.\ $176$~s)---and it reaches $m=6.4\times10^5$ in $909$~s, where the
 direct factorization is infeasible: on our workstation it already exhausts memory at $m=3.2\times10^5$, the
@@ -345,7 +347,7 @@ the algorithm is size-optimal on real graphs. The head-to-head against the fair 
 instance-dependent at these accessible sizes ($n\le2.6\times10^4$): approximate Cholesky is $1.5$--$1.6\times$
 faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
 \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a
-good nested-dissection ordering still wins. Which solver wins is set by the graph's separator structure, not its
+good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its
 edge count alone. The controlled synthetic family (\cref{tab:scaling}) isolates the asymptotic crossover
 cleanly; the real corpus shows the near-linear solver is already competitive-to-faster on the actual
 application topologies, with the advantage concentrated on the sparsest, least-separable instances.

@@ -334,6 +334,35 @@ these graphs) rather than any growth in the iteration count. Using loose interme
 realizes this: solving every level to $10^{-9}$ instead gives $t\propto m^{1.49}$ (roughly $4\times$ more Newton
 steps) and pushes the crossover out; the loose schedule does not change the final solution (\cref{sec:results}).
 
+We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection---Internet
+autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
+(\cref{tab:corpus}). Two facts hold across the corpus: the AMG setup count is size-independent ($15$--$23$
+builds), confirming the algorithm is size-optimal on real graphs; and the near-linear solver is competitive
+with the fair direct baseline, faster on the most poorly-separable instances (\texttt{Oregon-1},
+\texttt{as-caida}, \texttt{p2p-Gnutella08}: $1.1$--$1.4\times$) where nested-dissection fill is worst. The
+outcome is instance-dependent rather than a clean size threshold---direct retains the edge on the smallest
+(\texttt{as-735}) and on one denser overlay---because on real graphs the direct cost is governed by the
+separator structure, not the edge count alone. The controlled synthetic family (\cref{tab:scaling}) isolates
+the asymptotic crossover; the corpus shows the advantage already materializes on the actual application
+topologies at accessible sizes.
+
+\begin{table}[t]\centering
+\caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
+component): Internet AS graphs and P2P overlays. Near-linear approximate Cholesky vs.\ the fair
+frozen-per-level direct baseline; AMG \emph{setups} stay size-independent. Dash: direct capped at
+$m>1.5\times10^5$.}
+\label{tab:corpus}
+\begin{tabular}{lrrrrr}\toprule
+graph & $n$ & $m$ & approx.\ Chol. & direct & setups\\\midrule
+\texttt{as-735} (AS)         & $6{,}474$  & $25{,}144$  & $45.4$  & $18.1$  & $15$\\
+\texttt{p2p-Gnutella08}      & $6{,}299$  & $41{,}552$  & $47.6$  & $58.2$  & $15$\\
+\texttt{Oregon-1} (AS)       & $11{,}174$ & $46{,}818$  & $47.2$  & $66.5$  & $17$\\
+\texttt{as-caida} (AS)       & $26{,}475$ & $106{,}762$ & $155.8$ & $169.1$ & $18$\\
+\texttt{p2p-Gnutella24}      & $26{,}498$ & $130{,}718$ & $204.9$ & $161.3$ & $23$\\
+\texttt{ca-HepPh}            & $11{,}204$ & $235{,}238$ & $144.9$ & ---     & $15$\\\bottomrule
+\end{tabular}
+\end{table}
+
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks: near-linear (approximate
 Cholesky, loose-intermediate continuation) vs.\ direct sparse factorization. Dashes: direct infeasible.}
@@ -355,7 +384,7 @@ there---which is why we frame the advantage on the communication-network regime.
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
 \caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: near-linear
 (approximate Cholesky, loose-intermediate continuation) vs.\ superlinear (direct factorization), crossing near
-$m\approx SCROSS$.}\label{fig:scaling}\end{figure}
+$m\approx1.1\times10^5$.}\label{fig:scaling}\end{figure}
 
 \paragraph{Reproducibility.}
 All code, unit tests, and a reproduction driver are available at \url{https://github.com/orenlivne/dnlf}.

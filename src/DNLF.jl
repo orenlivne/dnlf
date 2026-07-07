@@ -149,7 +149,7 @@ smoothed_law(N::DirectedNetwork, τ, δ) = (f, dρ, g) -> begin
 end
 
 # Default δ-homotopy schedule: fractions of the mean free-flow cost, geometric from smooth to sharp.
-const DFRACS = (0.5, 0.25, 0.12, 0.06, 0.03, 0.015, 0.008, 0.004, 0.002, 0.001, 5e-4)
+const DFRACS = (0.5, 0.25, 0.12, 0.06, 0.03, 0.015, 0.008, 0.004, 0.002, 0.001, 5e-4, 2e-4, 1e-4)
 
 """
     solve_flow(N, d, tolls; inner=:approxchol, init=nothing, Hpack=nothing, ...) -> (φ, f, steps, setups)
@@ -164,31 +164,40 @@ Every linear solve is delegated to NLF's `newton_flow!` + near-linear engine (`:
 """
 function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = nothing,
                     tol = 1e-9, nmax = 300, anderson = 8, Hpack = nothing, dfracs = DFRACS,
-                    refresh = 0.25)
+                    refresh = 0.25, itol = nothing, inmax = 6)
     Bn   = -N.B                                          # (Bₙᵀx)ₐ = φ_init − φ_term  (rho's convention)
-    bs   = inner === :approxchol ? approxchol_builder() : nothing
-    isym = inner === :approxchol ? :multigrid : inner    # approxChol injected via build_solver
+    bs   = inner === :approxchol ? approxchol_builder() :
+           inner === :lu         ? lu_builder()          : nothing
+    isym = (inner === :approxchol || inner === :lu) ? :multigrid : inner   # engine injected via build_solver
     H, SC, ST, setups, GG = Hpack === nothing ?
         (Ref{Any}(nothing), Ref(1.0), Ref(false), Ref(0), Ref(1.0)) : Hpack
     x = init === nothing ? zeros(N.n) : copy(init)
     tot = 0
+    # `itol` (intermediate tolerance) enables loose continuation: intermediate δ-levels are solved only to
+    # `itol` in `inmax` steps (they just warm-start the next level), tight only at the final level; the polish
+    # is then frozen. This keeps the Newton-step count and setups size-independent (paper §5). `itol=nothing`
+    # gives the accurate mode (every level tight, adaptive polish → machine precision).
+    loose = itol !== nothing
     if init === nothing
         # Cold: smoothing homotopy. The smoothed law has ρ′>0 even at x=0 (no dead zone), so J is a
         # connected Laplacian from the start; rebuild once per δ-level and freeze within ⇒ O(1) builds.
         tmean = sum(N.t0)/N.m
-        for fr in dfracs
+        for (i, fr) in enumerate(dfracs)
             H[] = nothing
+            last = (i == length(dfracs))
+            ltol  = (loose && !last) ? itol  : tol
+            lnmax = (loose && !last) ? inmax : nmax
             res = newton_flow!(x, Bn, smoothed_law(N, tolls, fr*tmean), d; inner = isym,
-                     build_solver = bs, tol = tol, nmax = nmax, anderson = anderson, refresh = 1e9,
+                     build_solver = bs, tol = ltol, nmax = lnmax, anderson = anderson, refresh = 1e9,
                      H = H, SC = SC, ST = ST, setups = setups, GG = GG)
             tot += res.steps
         end
     end
-    # Polish (cold) / warm solve: exact rectified law with Armijo energy, reusing the current hierarchy
-    # (adaptive rebuild only if it goes stale). Drives to the exact equilibrium at machine precision.
+    # Polish (cold) / warm solve: exact rectified law with Armijo energy. Accurate mode rebuilds adaptively
+    # (→ machine precision); loose mode keeps the hierarchy frozen (→ ≈`itol`, "good enough" for design/scaling).
     res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
              energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
-             refresh = refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
+             refresh = loose ? 1e9 : refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
     tot += res.steps
     f = zeros(N.m)
     @inbounds for a in 1:N.m; f[a] = rho(N, a, (x[N.ini[a]] - x[N.ter[a]]) - tolls[a])[1]; end

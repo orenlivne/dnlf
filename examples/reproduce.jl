@@ -69,9 +69,9 @@ println("\n[5] size-independence (synthetic irregular; see scripts/scaling.jl fo
 @printf("    %-7s %-9s %-8s %-8s %-9s\n","n","m","steps","builds","ac_time")
 for n in (1000,2000,4000)
     nt,dd=rand_net(n); Hp=(Ref{Any}(nothing),Ref(1.0),Ref(false),Ref(0),Ref(1.0))
-    DNLF.solve_flow(nt,dd,zeros(nt.m); tol=1e-9)  # compile
+    DNLF.solve_flow(nt,dd,zeros(nt.m); itol=3e-2, inmax=6)  # compile (loose intermediate continuation)
     Hp=(Ref{Any}(nothing),Ref(1.0),Ref(false),Ref(0),Ref(1.0))
-    tt=@elapsed ((_,_,stp)=DNLF.solve_flow(nt,dd,zeros(nt.m); tol=1e-9, Hpack=Hp))
+    tt=@elapsed ((_,_,stp)=DNLF.solve_flow(nt,dd,zeros(nt.m); itol=3e-2, inmax=6, Hpack=Hp))
     @printf("    %-7d %-9d %-8d %-8d %-9.2f\n", nt.n, nt.m, stp, Hp[4][], tt)
 end
 println("\nDone. Newton-steps and AMG-builds are ~constant in size; wall-clock is near-linear (~m^1.2).")

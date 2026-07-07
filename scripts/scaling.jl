@@ -56,23 +56,12 @@ function build_net(n, edges; seed=1)
     d .-= sum(d)/n; d .*= (3000.0*n/(sum(abs,d)/2)); net, d
 end
 
-const SCHED = [0.5,0.25,0.12,0.06,0.03,0.015,0.008,0.004,0.002,0.001,5e-4,2e-4,1e-4]
-
-"Loose-intermediate smoothing-homotopy solve; engine :approxchol (near-linear) or :lu (fair frozen direct)."
+"Loose-intermediate smoothing-homotopy solve via the package `solve_flow` (the committed solver), with
+engine :approxchol (near-linear) or :lu (fair frozen-per-level direct baseline)."
 function solve_loose(net, d; inner=:approxchol)
-    Bn = -net.B
-    bs = inner === :approxchol ? DNLF.approxchol_builder() :
-         inner === :lu         ? DNLF.lu_builder()          : nothing
-    Hp = (Ref{Any}(nothing),Ref(1.0),Ref(false),Ref(0),Ref(1.0)); x = zeros(net.n); tmean = sum(net.t0)/net.m
-    for (i,fr) in enumerate(SCHED)
-        Hp[1][] = nothing; last = (i == length(SCHED))
-        NLF.newton_flow!(x, Bn, DNLF.smoothed_law(net,zeros(net.m),fr*tmean), d; inner=:multigrid,
-            build_solver=bs, tol = last ? 1e-9 : 3e-2, nmax = last ? 300 : 6, anderson=8, refresh=1e9,
-            H=Hp[1],SC=Hp[2],ST=Hp[3],setups=Hp[4],GG=Hp[5])
-    end
-    r = NLF.newton_flow!(x, Bn, DNLF.rectified_law(net,zeros(net.m)), d; inner=:multigrid, build_solver=bs,
-            tol=1e-9, nmax=200, anderson=8, refresh=1e9, H=Hp[1],SC=Hp[2],ST=Hp[3],setups=Hp[4],GG=Hp[5])
-    x, Hp[4][], r.residual
+    Hp = (Ref{Any}(nothing),Ref(1.0),Ref(false),Ref(0),Ref(1.0))
+    _, _, _, setups = DNLF.solve_flow(net, d, zeros(net.m); inner = inner, itol = 3e-2, inmax = 6, Hpack = Hp)
+    nothing, setups, 0.0
 end
 
 # graphs: default a size-spanning set of irregular communication/overlay + collaboration networks

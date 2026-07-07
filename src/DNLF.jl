@@ -18,9 +18,11 @@ active set (a conductance floor keeps `J` connected) and the activation regulari
 module DNLF
 
 using NLF                       # the dependency chain: DNLF → NLF → LAMG+ (NLF re-exports LAMG)
+import Laplacians               # approxchol_lap — the swappable near-linear inner engine (approx-Cholesky)
 using LinearAlgebra, SparseArrays, Printf
 
-export DirectedNetwork, load_tntp_net, solve_ue, frank_wolfe, tstt, toll_gradient, adjoint_grad
+export DirectedNetwork, load_tntp_net, solve_ue, solve_flow, solve_ue_direct, frank_wolfe, tstt,
+       toll_gradient, adjoint_grad, approxchol_builder, lu_builder, rectified_law, ue_energy, smoothed_law
 
 "Directed network with separable BPR arc costs `t_a(f) = t⁰(1 + b (f/c)^p)`."
 struct DirectedNetwork
@@ -77,14 +79,141 @@ sp_to_sink(N, s) = begin                             # free-flow shortest-path p
     replace(φ, Inf => maximum(filter(isfinite, φ)) * 2)
 end
 
-"""
-    solve_ue(N, r, s, D) -> (φ, f, steps)
+# ---------------- NLF reuse layer: engine, rectified law, energy ----------------
+# approxChol (Kyng–Sachdeva, via Laplacians.jl) as a build_solver closure for NLF's newton_flow!:
+# maps a scaled clean graph Laplacian Lc to an apply-closure rhs -> x solving Lc x = rhs.
+# Interchangeable with LAMG+ (inner = :multigrid). Same wiring as the NP package.
+function approxchol_builder(; tol = 1e-8)
+    return Lc -> begin
+        A = -(Lc - spdiagm(0 => diag(Lc)))          # adjacency = positive off-diagonals of −Lc
+        dropzeros!(A)
+        f = Laplacians.approxchol_lap(A; tol = tol)
+        rhs -> f(rhs)
+    end
+end
 
-Single-commodity directed UE: route demand `D` from `r` to `s` by NLF-style damped chord-Newton on
-the rectified edge law, with an energy (Armijo) line search and load continuation. Returns node
-potentials `φ`, arc flows `f ≥ 0`, and total Newton steps.
+# Frozen direct factorization as a build_solver: an LU of the node-1-pinned Laplacian, built once per
+# continuation level (when `newton_flow!` would rebuild the AMG hierarchy) and reused by back-substitution
+# within the level. This is the FAIR direct baseline — the same freeze-once-per-level discipline as the
+# multigrid hierarchy — so a comparison isolates factorization vs near-linear cost, not per-step refactoring.
+# Returns the zero-mean solution.
+function lu_builder()
+    return Lc -> begin
+        n = size(Lc, 1); keep = 2:n
+        F = lu(Lc[keep, keep])
+        rhs -> begin
+            x = zeros(n); x[keep] = F \ rhs[keep]; x .-= sum(x)/n; x
+        end
+    end
+end
+
+# Rectified directed edge law as a newton_flow! callback. NLF's callback receives g = Bₙᵀx; with the
+# solver incidence Bₙ = −N.B we get gₐ = φ_init − φ_term, so fₐ = ρₐ(gₐ − τₐ), dρₐ = ρ′ₐ ≥ 0.
+rectified_law(N::DirectedNetwork, τ) = (f, dρ, g) -> begin
+    @inbounds for a in 1:N.m
+        (f[a], dρ[a]) = rho(N, a, g[a] - τ[a])
+    end
+end
+
+# Convex directed-UE flow energy E(x) = Σₐ ψₐ((φ_init−φ_term)−τₐ) − bᵀx, with ∇E = Bₙ ρ(Bₙᵀx−τ) − b.
+# Supplied to newton_flow! for the Armijo line search (the principled globalizer for the rectified law).
+ue_energy(N::DirectedNetwork, b, τ) = x -> begin
+    s = 0.0
+    @inbounds for a in 1:N.m
+        s += arc_psi(N, a, (x[N.ini[a]] - x[N.ter[a]]) - τ[a])
+    end
+    s - dot(b, x)
+end
+
+# Smoothed rectified law: the excess e = g − t⁰ is passed through δ·softplus(e/δ) (→ max(e,0) as δ→0),
+# so ρ′ = sigmoid(e/δ)/t′(f) > 0 EVERYWHERE — no dead zone. This fills the inactive arcs with a small,
+# smoothly-vanishing conductance, keeping the Newton Jacobian well-conditioned and slowly varying so the
+# AMG hierarchy stays valid when frozen across a δ-level. As δ→0 the law → the exact rectified law.
+function rho_smooth(N::DirectedNetwork, a, g, δ)
+    δ <= 0 && return rho(N, a, g)
+    e = g - N.t0[a]; z = e / δ
+    sp    = δ * (max(z, 0.0) + log1p(exp(-abs(z))))    # δ·softplus(z) ≥ 0 (numerically stable)
+    dspde = 1.0 / (1.0 + exp(-z))                      # sigmoid(z) ∈ (0,1)
+    f = N.cap[a] * max(sp / (N.b[a]*N.t0[a]), 1e-40)^(1/N.p[a])
+    for _ in 1:80
+        r = (tcost(N, a, f) - N.t0[a]) - sp
+        abs(r) <= 1e-14*(sp + 1) && break
+        f = max(f - r/dcost(N, a, f), 1e-40)
+    end
+    (f, dspde / dcost(N, a, f))                        # (flow, ρ′ = df/dg > 0)
+end
+smoothed_law(N::DirectedNetwork, τ, δ) = (f, dρ, g) -> begin
+    @inbounds for a in 1:N.m
+        (f[a], dρ[a]) = rho_smooth(N, a, g[a] - τ[a], δ)
+    end
+end
+
+# Default δ-homotopy schedule: fractions of the mean free-flow cost, geometric from smooth to sharp.
+const DFRACS = (0.5, 0.25, 0.12, 0.06, 0.03, 0.015, 0.008, 0.004, 0.002, 0.001, 5e-4)
+
 """
-function solve_ue(N::DirectedNetwork, r, s, D; tolls = zeros(N.m), init = nothing,
+    solve_flow(N, d, tolls; inner=:approxchol, init=nothing, Hpack=nothing, ...) -> (φ, f, steps, setups)
+
+Directed equilibrium `B ρ(Bᵀφ − τ) = d` for a balanced demand vector `d` (single commodity; multi-
+source/sink allowed). **Cold start** (`init=nothing`): a **smoothing homotopy** in δ — one hierarchy build
+per δ-level, frozen within (setups = O(#levels) = O(1) in graph size) — then a hard-law **polish** to the
+exact rectified equilibrium (no accuracy compromise). **Warm start** (`init` given): a single hard-law
+solve that **reuses the passed-in hierarchy** `Hpack` — this is what removes the per-design-step rebuild.
+Every linear solve is delegated to NLF's `newton_flow!` + near-linear engine (`:approxchol` default,
+`:multigrid`=LAMG+, `:direct`). Returns `(φ, f, steps, setups)`.
+"""
+function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = nothing,
+                    tol = 1e-9, nmax = 300, anderson = 8, Hpack = nothing, dfracs = DFRACS,
+                    refresh = 0.25)
+    Bn   = -N.B                                          # (Bₙᵀx)ₐ = φ_init − φ_term  (rho's convention)
+    bs   = inner === :approxchol ? approxchol_builder() : nothing
+    isym = inner === :approxchol ? :multigrid : inner    # approxChol injected via build_solver
+    H, SC, ST, setups, GG = Hpack === nothing ?
+        (Ref{Any}(nothing), Ref(1.0), Ref(false), Ref(0), Ref(1.0)) : Hpack
+    x = init === nothing ? zeros(N.n) : copy(init)
+    tot = 0
+    if init === nothing
+        # Cold: smoothing homotopy. The smoothed law has ρ′>0 even at x=0 (no dead zone), so J is a
+        # connected Laplacian from the start; rebuild once per δ-level and freeze within ⇒ O(1) builds.
+        tmean = sum(N.t0)/N.m
+        for fr in dfracs
+            H[] = nothing
+            res = newton_flow!(x, Bn, smoothed_law(N, tolls, fr*tmean), d; inner = isym,
+                     build_solver = bs, tol = tol, nmax = nmax, anderson = anderson, refresh = 1e9,
+                     H = H, SC = SC, ST = ST, setups = setups, GG = GG)
+            tot += res.steps
+        end
+    end
+    # Polish (cold) / warm solve: exact rectified law with Armijo energy, reusing the current hierarchy
+    # (adaptive rebuild only if it goes stale). Drives to the exact equilibrium at machine precision.
+    res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
+             energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
+             refresh = refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
+    tot += res.steps
+    f = zeros(N.m)
+    @inbounds for a in 1:N.m; f[a] = rho(N, a, (x[N.ini[a]] - x[N.ter[a]]) - tolls[a])[1]; end
+    x, f, tot, setups[]
+end
+
+"""
+    solve_ue(N, r, s, D; ...) -> (φ, f, steps)
+
+Single-OD convenience wrapper over `solve_flow`: demand `D` from `r` to `s`. See `solve_flow` for the
+homotopy / hierarchy-reuse machinery and keyword arguments.
+"""
+function solve_ue(N::DirectedNetwork, r, s, D; tolls = zeros(N.m), kwargs...)
+    d = zeros(N.n); d[r] = D; d[s] = -D
+    φ, f, steps, _ = solve_flow(N, d, tolls; kwargs...)
+    φ, f, steps
+end
+
+"""
+    solve_ue_direct(N, r, s, D) -> (φ, f, steps)
+
+Reference solver: the original hand-rolled chord-Newton with a **direct** `J[keep,keep] \\ …` inner
+solve (pins the sink). Kept for regression/ground-truth against the near-linear `solve_ue`.
+"""
+function solve_ue_direct(N::DirectedNetwork, r, s, D; tolls = zeros(N.m), init = nothing,
                   loads = 0.05:0.05:1.0, nmax = 200, tol = 1e-9)
     φ = init === nothing ? sp_to_sink(N, s) : copy(init)
     keep = setdiff(1:N.n, s)                          # pin the sink
@@ -97,9 +226,9 @@ function solve_ue(N::DirectedNetwork, r, s, D; tolls = zeros(N.m), init = nothin
             @inbounds for a in 1:N.m; (f[a], dρ[a]) = rho(N, a, φ[N.ini[a]] - φ[N.ter[a]] - tolls[a]); end
             R = -(N.B*f) - d                          # = grad E
             norm(R[keep]) < tol*max(ℓ*D, 1) && break
-            dρf = max.(dρ, 1e-6 * maximum(dρ; init = 1.0))   # floor keeps J a connected Laplacian
+            dρf = max.(dρ, 1e-12 * maximum(dρ; init = 1.0))  # floor keeps J a connected Laplacian
             J = N.B*spdiagm(0 => dρf)*N.B'
-            δ = zeros(N.n); δ[keep] = J[keep, keep] \ (-R[keep])     # (LAMG+ is the inner solve at scale)
+            δ = zeros(N.n); δ[keep] = J[keep, keep] \ (-R[keep])
             E0 = energy(N, φ, d, tolls); slope = dot(R[keep], δ[keep]); α = 1.0; moved = false
             for _ in 1:60
                 φt = copy(φ); φt[keep] .+= α.*δ[keep]
@@ -123,7 +252,7 @@ function adjoint_grad(N::DirectedNetwork, s, φ, f, tolls)
     ρ′ = [rho(N, a, φ[N.ini[a]] - φ[N.ter[a]] - tolls[a])[2] for a in 1:N.m]
     mc = [tcost(N, a, f[a]) + f[a]*dcost(N, a, f[a]) for a in 1:N.m]   # marginal cost m_a
     w  = mc .* ρ′
-    J  = N.B*spdiagm(0 => max.(ρ′, 1e-6*maximum(ρ′; init = 1.0)))*N.B'
+    J  = N.B*spdiagm(0 => max.(ρ′, 1e-12*maximum(ρ′; init = 1.0)))*N.B'   # tiny floor keeps J connected, ~no bias
     λ  = zeros(N.n); λ[keep] = J[keep, keep] \ (-(N.B*w))[keep]        # the ONE adjoint solve
     -ρ′ .* (mc .+ (N.B'*λ))                                           # ∇_τ TSTT over ALL links
 end

@@ -4,15 +4,23 @@ version = "0.1.0-dev"
 authors = ["Oren Livne <oren.livne@gmail.com>"]
 
 [deps]
-NLF = "cef77db7-f4e9-4a08-a19e-0d28163d44d4"
 LAMG = "5a7e4c11-0000-4a1e-9c2f-1a2b3c4d5e6f"
+Laplacians = "6f8e5838-0efe-5de0-80a3-5fb4f8dbb1de"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+NLF = "cef77db7-f4e9-4a08-a19e-0d28163d44d4"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [sources]
-NLF = {url = "https://github.com/orenlivne/nlf"}
-LAMG = {url = "https://github.com/orenlivne/lamgplus"}
+LAMG = {path = "../lamgplus"}
+NLF = {path = "../nlf"}
 
 [compat]
+Laplacians = "1.4.1"
 julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

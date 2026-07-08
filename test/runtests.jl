@@ -29,6 +29,18 @@ mcnet = mc_randnet(200)
         @test all(net.cap .> 0) && all(net.t0 .> 0)
     end
 
+    @testset "load_tntp_trips / destination_demands" begin
+        od = DNLF.load_tntp_trips(joinpath(pkgdir(DNLF), "data", "SiouxFalls", "SiouxFalls_trips.tntp"))
+        @test size(od) == (24, 24)                             # Sioux Falls has 24 zones
+        @test all(od .>= 0) && all(diag(od) .== 0)             # nonneg, no intra-zone trips
+        @test isapprox(sum(od), 360600.0; rtol = 1e-9)         # published TOTAL OD FLOW
+        dem = DNLF.destination_demands(od, net.n)
+        @test length(dem) == 24                                # one commodity per destination zone
+        @test all(length(d) == net.n for d in dem)             # demands padded to network node count
+        @test all(abs(sum(d)) < 1e-6 for d in dem)             # each commodity conserves mass
+        j = 10; @test isapprox(dem[j][j], -sum(@view od[:, j]); rtol = 1e-9)  # sink = −(incoming total)
+    end
+
     # ---- Cost laws: BPR, its inverse ρ, and the smoothed law ----
     @testset "cost laws: tcost / dcost / rho / rho_smooth" begin
         a = 1

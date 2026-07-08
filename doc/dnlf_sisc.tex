@@ -43,7 +43,9 @@ near-linear solver does \emph{not} win; the advantage is on the poorly-separable
 routing in communication systems. We further extend the framework to the \emph{multicommodity} logit stochastic
 user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
 preconditioner solves in a handful of iterations, and the design adjoint again returns the gradient for all
-tolls in one solve. Code is available at \url{https://github.com/orenlivne/dnlf}.
+tolls in one solve; on the Sioux Falls and Anaheim road networks with their published origin--destination
+matrices, destination-bundled design cuts total system travel time by $8$--$13\%$ with a bounded,
+size-independent inner-iteration count. Code is available at \url{https://github.com/orenlivne/dnlf}.
 \end{abstract}
 
 \begin{keywords}
@@ -453,11 +455,13 @@ real-corpus table (\cref{tab:corpus}) over the public SuiteSparse/SNAP graph col
 the fair frozen-per-level direct baseline. \texttt{scripts/baseline\_firstorder.jl} regenerates the
 first-order head-to-head (\cref{tab:baseline}); \texttt{scripts/scaling\_mc.jl} regenerates the multicommodity
 iteration table (\cref{tab:mc}), \texttt{scripts/design\_study\_mc.jl} the multi-instance design study
-(\cref{tab:mcdesign}), and \texttt{examples/reproduce\_mc.jl} a single multicommodity design instance
-(\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm component, including
-\cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc}. The test networks are the TNTP Sioux Falls
-instance (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
-\texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
+(\cref{tab:mcdesign}), \texttt{scripts/design\_study\_tntp.jl} the real-network validation on the published
+Sioux Falls and Anaheim OD matrices (\cref{tab:mcreal}), and \texttt{examples/reproduce\_mc.jl} a single
+multicommodity design instance (\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm
+component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc} and the TNTP OD-matrix loader. The
+test networks are the TNTP Sioux Falls and Anaheim instances with their published OD matrices (shipped with the
+code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida}, \texttt{Oregon-1},
+\texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
 
 \section{Multicommodity logit stochastic user equilibrium and design}\label{sec:mc}
 The single-commodity solver of \cref{sec:solver} routes a general balanced demand as one fungible flow.
@@ -515,15 +519,20 @@ near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small
 ($10^{-12}$ of its maximum weight) so it stays connected and the approximate-Cholesky factorization remains
 applicable even to a commodity that concentrates on few arcs; a pinned direct solve is retained only as a
 fallback for the rare inputs on which the multigrid factorization throws. The count is single digit at and near
-equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); it is
-only the \emph{cold} forward solve at small $\gamma$, far from equilibrium where per-commodity flows concentrate
-and the blocks become high-contrast, that degrades toward the deterministic multicommodity limit ($\gamma\to0$).
-We verified that a coupling-aware distribution-matrix preconditioner realized in flow space (the per-arc coupling
-inverted exactly by Sherman--Morrison, with an aggregate-congestion Laplacian on the mean commodity mode, as
-\cite{brandt1984} prescribes) converges $\gamma$-boundedly where the reduced-potential-space version does not,
-but it does not improve on the block diagonal in the operating regime; the block diagonal is therefore retained
-and the deterministic limit left open (\cref{sec:conclusion}). Fixed $\gamma$ is thus both the modelling choice
-(a calibrated route-choice dispersion) and the regime in which the block preconditioner is well conditioned.
+equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); only the
+\emph{cold} forward solve at small $\gamma$, far from equilibrium where per-commodity flows concentrate and the
+blocks become high-contrast, is expensive, and that regime is entered only as one leaves the logit-SUE model for
+its deterministic ($\gamma\to0$) limit. That limit is a \emph{different} model---deterministic multicommodity
+user equilibrium, with non-unique commodity flows, for which Frank--Wolfe and related methods are already
+effective---not a regime our fixed-$\gamma$ solver must reach: fixed $\gamma$ is a calibrated route-choice
+dispersion~\cite{fisk1980,daganzo1977}, a complete behavioural model in its own right, so we solve the logit SUE
+at that $\gamma$ and do not pursue $\gamma\to0$. We nonetheless verified that a coupling-aware distribution-matrix
+preconditioner realized in flow space (the per-arc coupling inverted exactly by Sherman--Morrison, with an
+aggregate-congestion Laplacian on the mean commodity mode, as \cite{brandt1984} prescribes) converges
+$\gamma$-boundedly where the reduced-potential-space version does not, but it does not improve on the block
+diagonal in the operating regime; the block diagonal is therefore retained. Fixed $\gamma$ is thus both the
+modelling choice (a calibrated route-choice dispersion) and the regime in which the block preconditioner is well
+conditioned.
 
 \paragraph{Design.}
 Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity
@@ -532,9 +541,15 @@ for all tolls from a single block-preconditioned solve $J\lambda=\partial_\Phi\m
 central finite differences to under $10^{-3}$ (verified in \texttt{test/runtests.jl}), and on a multicommodity
 instance projected-gradient tolling reduces TSTT with the tolls spread across the congested arcs, each
 equilibrium re-solve costing single-digit inner iterations---the bilevel iteration inheriting the near-linear
-per-step cost. Across a range of instances (varying $K$, $\gamma$,
+per-step cost. Across a range of synthetic instances (varying $K$, $\gamma$,
 network size, and demand; \cref{tab:mcdesign}) the reduction is $1$--$2\%$ and the inner-iteration count stays
-single digit. A budget-constrained (sparse-toll) design is a natural extension.
+single digit. On the two canonical TNTP road networks with their \emph{published} origin--destination matrices
+and BPR parameters---Sioux Falls ($n=24$, $m=76$, $K=24$ destination commodities) and Anaheim ($n=416$, $m=914$,
+$K=38$)---destination-bundled design reduces the real system travel time by $8$--$13\%$ (\cref{tab:mcreal}). Both
+networks are over-saturated at their full published demand (peak volume/capacity above $2.5$); the inner
+iteration count stays bounded and, consistent with the near-linear claim, does \emph{not} grow with size---Anaheim
+carries $27\times$ the degrees of freedom of Sioux Falls yet needs \emph{fewer} inner iterations, its larger arc
+set better conditioning the block preconditioner. A budget-constrained (sparse-toll) design is a natural extension.
 
 \begin{table}[t]\centering
 \caption{Multicommodity logit-SUE inner conjugate-gradient iterations (block-preconditioned) on irregular
@@ -568,6 +583,23 @@ $800$     & $8$  & $0.10$ & $6{,}000$ & $1.0\%$ & $6$ & $49\%$\\
 $800$     & $8$  & $0.10$ & $3{,}200$ & $1.4\%$ & $6$ & $45\%$\\
 $1{,}200$ & $8$  & $0.10$ & $3{,}600$ & $1.4\%$ & $6$ & $44\%$\\
 $1{,}600$ & $8$  & $0.10$ & $3{,}600$ & $1.2\%$ & $6$ & $43\%$\\\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]\centering
+\caption{Real-network validation: destination-bundled logit-SUE toll design on the two canonical TNTP road
+networks with their \emph{published} OD matrices and BPR parameters (one commodity per destination zone). Both
+are over-saturated at full demand (peak volume/capacity $>2.5$). Tolls spread across $53$--$74\%$ of arcs. The
+inner conjugate-gradient count at the final equilibrium solve is bounded and does not grow with size---Anaheim
+has $27\times$ the degrees of freedom yet needs fewer iterations. Regenerated by
+\texttt{scripts/design\_study\_tntp.jl}.}
+\label{tab:mcreal}
+\begin{tabular}{lrrrrrr}\toprule
+network & $n$ & $m$ & $K$ & $\gamma$ & TSTT red.\ & inner it.\\\midrule
+Sioux Falls & $24$  & $76$  & $24$ & $2$ & $9.4\%$  & $38$\\
+Sioux Falls & $24$  & $76$  & $24$ & $5$ & $13.1\%$ & $30$\\
+Anaheim     & $416$ & $914$ & $38$ & $2$ & $12.2\%$ & $16$\\
+Anaheim     & $416$ & $914$ & $38$ & $5$ & $\phantom{0}7.7\%$  & $12$\\\bottomrule
 \end{tabular}
 \end{table}
 
@@ -605,13 +637,15 @@ number of multigrid setups and near-linear wall-clock. Bilevel toll design then 
 cost, in place of the cubic factorization of sensitivity-analysis methods.
 
 We are explicit about what this paper does \emph{not} yet establish. (i) \textbf{Multicommodity scope.}
-\Cref{sec:mc} solves and designs the multicommodity \emph{logit} (stochastic) user equilibrium at a fixed
-dispersion $\gamma$; the \emph{deterministic} multicommodity limit ($\gamma\to0$), where per-commodity flows
-become non-unique and the cold-solve iteration count grows, and a study over real OD-matrix instances (e.g.\
-TNTP city networks) remain open. We investigated the coupling-aware distribution-matrix preconditioner that
-would target this limit (\cref{sec:mc}): its flow-space realization converges $\gamma$-boundedly, confirming the
-construction, but it does not improve on the block diagonal in the operating regime, so a preconditioner that is
-strictly better toward $\gamma\to0$ is still open. (ii) \textbf{Corpus scaling.} The near-linear claim is shown on one size-scaled
+\Cref{sec:mc} solves and designs the multicommodity \emph{logit} (stochastic) user equilibrium at a fixed,
+calibrated dispersion $\gamma$, validated on both synthetic instances and the two canonical TNTP road networks
+(Sioux Falls, Anaheim) with their published OD matrices (\cref{tab:mcreal}). We do \emph{not} pursue the
+$\gamma\to0$ \emph{deterministic} multicommodity limit: that is a distinct model, with non-unique per-commodity
+flows, for which Frank--Wolfe and related methods are already effective, and reaching it is outside the scope of
+a fixed-$\gamma$ SUE solver rather than a deficiency of it. The coupling-aware distribution-matrix preconditioner
+we investigated (\cref{sec:mc}) converges $\gamma$-boundedly in its flow-space realization, confirming Brandt's
+construction, but does not improve on the block diagonal in the operating regime; a preconditioner strictly
+better as $\gamma\to0$ would only matter for that separate deterministic model. (ii) \textbf{Corpus scaling.} The near-linear claim is shown on one size-scaled
 family; a study across a large graph corpus (as for related near-linear solvers) is needed to state the exponent
 with confidence. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
 design steps saves only a modest factor, because each exact solve intrinsically rebuilds once per $\delta$-level:

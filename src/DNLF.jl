@@ -21,7 +21,7 @@ using NLF                       # the dependency chain: DNLF → NLF → LAMG+ (
 import Laplacians               # approxchol_lap — the swappable near-linear inner engine (approx-Cholesky)
 using LinearAlgebra, SparseArrays, Printf
 
-export DirectedNetwork, load_tntp_net, solve_ue, solve_flow, solve_ue_direct, frank_wolfe, tstt,
+export DirectedNetwork, load_tntp_net, load_tntp_trips, destination_demands, solve_ue, solve_flow, solve_ue_direct, frank_wolfe, tstt,
        toll_gradient, adjoint_grad, approxchol_builder, lu_builder, rectified_law, ue_energy, smoothed_law,
        solve_sue, mc_flows, mc_resid, mc_jac, mc_blk_precond, mc_pcg, mc_tstt, mc_adjoint
 
@@ -49,6 +49,46 @@ function load_tntp_net(path)
     B = sparse([ini; ter], [1:m; 1:m], [fill(-1.0, m); fill(1.0, m)], n, m)
     DirectedNetwork(n, m, ini, ter, [a[3] for a in A], [a[4] for a in A],
                     [a[5] for a in A], [a[6] for a in A], B)
+end
+
+"Parse a TNTP `_trips.tntp` file into a dense `Z×Z` origin×destination OD matrix."
+function load_tntp_trips(path)
+    zones = 0; od = zeros(0, 0); orig = 0; meta = true
+    for ln in eachline(path)
+        s = strip(ln)
+        if meta
+            occursin("NUMBER OF ZONES", s) && (zones = parse(Int, split(s)[end]))
+            occursin("END OF METADATA", s) && (meta = false; od = zeros(zones, zones))
+            continue
+        end
+        isempty(s) && continue
+        if startswith(s, "Origin")
+            orig = parse(Int, split(s)[2]); continue
+        end
+        for pair in split(s, ';')
+            p = strip(pair); isempty(p) && continue
+            kv = split(p, ':'); length(kv) == 2 || continue
+            od[orig, parse(Int, strip(kv[1]))] = parse(Float64, strip(kv[2]))
+        end
+    end
+    od
+end
+
+"""
+    destination_demands(od, n) -> Vector of balanced n-vectors
+
+Destination-bundled multicommodity demands from an `Z×Z` OD matrix `od`, padded to `n` network nodes.
+Commodity `j` (one per destination zone with positive incoming demand) has `dⱼ[i] = od[i,j]` at each
+origin `i` and `dⱼ[j] = −Σᵢ od[i,j]` at the sink, so every commodity demand sums to zero (conservation).
+"""
+function destination_demands(od, n)
+    Z = size(od, 1); demands = Vector{Float64}[]
+    for j in 1:Z
+        tot = sum(@view od[:, j]); tot <= 0 && continue
+        d = zeros(n); for i in 1:Z; d[i] += od[i, j]; end; d[j] -= tot
+        push!(demands, d)
+    end
+    demands
 end
 
 # regularized directed BPR (REG keeps t'(0)>0, bounding ρ' at activation; standard BPR has t'(0)=0)

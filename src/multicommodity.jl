@@ -64,9 +64,19 @@ function _ac(L)
         catch
         end
     end
-    # robust fallback (pathological block that trips Laplacians.jl): pinned sparse LDLᵀ with a tiny
-    # Tikhonov shift so a near-singular block never yields NaN; zero-mean solution.
-    n = size(L, 1); keep = 2:n; F = ldlt(Symmetric(L[keep, keep] + (1e-10*maximum(diag(L)))*I))
+    # robust fallback (pathological block that trips Laplacians.jl, e.g. a near-disconnected per-commodity
+    # Laplacian on a tiny concentrated instance): pinned sparse LDLᵀ with an ESCALATING Tikhonov shift so an
+    # extreme-contrast block never zero-pivots. The shift only weakens the preconditioner, never the solve
+    # (PCG still drives the true residual to tol); a dense pivoted LU is the guaranteed last resort.
+    n = size(L, 1); keep = 2:n; d = maximum(diag(L)); Lk = Symmetric(L[keep, keep])
+    for s in (1e-10, 1e-7, 1e-4, 1e-1)
+        try
+            F = ldlt(Lk + (s*d)*I)
+            return r -> begin x = zeros(n); x[keep] = F \ (r[keep] .- sum(r)/n); x .-= sum(x)/n; x end
+        catch
+        end
+    end
+    F = lu(Matrix(Lk) + d*I)                                  # dense pivoted last resort (always factors)
     r -> begin x = zeros(n); x[keep] = F \ (r[keep] .- sum(r)/n); x .-= sum(x)/n; x end
 end
 

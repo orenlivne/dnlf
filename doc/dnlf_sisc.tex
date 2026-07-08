@@ -373,19 +373,23 @@ application topologies, with the advantage concentrated on the sparsest, least-s
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
 SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
-word-association, and web networks---spanning $2.5\times10^4$ to $7\times10^5$ arcs ($1.5$ decades of edge count).
-The wall-clock fits $t\propto m^{0.99}$, and the inner-engine setup count stays in $[7,27]$ across the
-\emph{entire} corpus (\cref{fig:corpus}): near-linear and size-optimal on real graphs of every family, consistent
-with the $m^{1.11}$ of the controlled synthetic family (\cref{tab:scaling}). The corpus fit is flatter than the
-synthetic one because it mixes topologies of differing separator structure at each size rather than scaling a
-single family; both are near-linear.
+word-association, and web networks (collaboration and peer-to-peer the largest groups)---spanning
+$2.5\times10^4$ to $7\times10^5$ arcs (${\approx}1.45$ decades of edge count). The wall-clock fits
+$t\propto m^{0.99}$ and the inner-engine setup count stays \emph{bounded} in $[7,27]$ across the entire corpus
+(\cref{fig:corpus}), consistent with the $m^{1.11}$ and flat setups of the controlled synthetic family
+(\cref{tab:scaling}). This corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
+time already varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
+collaboration graph of equal edge count), which broadens the scatter and pulls the fit just below $1$---we do not
+read the $0.99$ as better-than-linear, nor its $0.12$ gap from the synthetic $1.11$ as a real exponent
+difference; both are consistent with the $m\,\mathrm{polylog}\,m$ theory. Timing is serial and uncontended; the
+smaller head-to-head of \cref{tab:corpus} instead uses approximate Cholesky to face the direct baseline.
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time (default LAMG$+$ engine) vs.\ edge count across a topology-diverse corpus of
-$53$ irregular SuiteSparse/SNAP graphs (autonomous-system, peer-to-peer, collaboration, email, signed-social,
-citation, word-association, web). Wall-clock fits $t\propto m^{0.99}$ over $1.5$ decades, with a
-size-independent inner-engine setup count ($[7,27]$)---near-linear on real graphs of every family. Serial,
-uncontended timing on an Apple M5 Pro.}\label{fig:corpus}\end{figure}
+$53$ irregular SuiteSparse/SNAP graphs (eight families; collaboration and peer-to-peer largest, web and citation
+single instances). Wall-clock fits $t\propto m^{0.99}$ over ${\approx}1.45$ decades, with a \emph{bounded}
+inner-engine setup count ($[7,27]$)---a descriptive near-linear trend across real graphs of every family, not a
+complexity estimate (\cref{sec:results}). Serial, uncontended timing on an Apple M5 Pro.}\label{fig:corpus}\end{figure}
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
@@ -671,10 +675,10 @@ flows, for which Frank--Wolfe and related methods are already effective, and rea
 a fixed-$\gamma$ SUE solver rather than a deficiency of it. The coupling-aware distribution-matrix preconditioner
 we investigated (\cref{sec:mc}) converges $\gamma$-boundedly in its flow-space realization, confirming Brandt's
 construction, but does not improve on the block diagonal in the operating regime; a preconditioner strictly
-better as $\gamma\to0$ would only matter for that separate deterministic model. (ii) \textbf{Corpus scaling.} The near-linear exponent is confirmed both on the
+better as $\gamma\to0$ would only matter for that separate deterministic model. (ii) \textbf{Corpus scaling.} The near-linear behaviour is confirmed both on the
 controlled synthetic family ($m^{1.11}$) and across a $53$-graph topology-diverse SuiteSparse/SNAP corpus
-($m^{0.99}$ with size-independent setups; \cref{fig:corpus}); a still-larger corpus (thousands of graphs) would
-tighten the exponent further. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
+($m^{0.99}$ descriptive fit, with the inner-engine setup count bounded in $[7,27]$; \cref{fig:corpus}); a
+still-larger corpus (thousands of graphs) would tighten the estimate further. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
 design steps saves only a modest factor, because each exact solve intrinsically rebuilds once per $\delta$-level:
 the exploding condition number reflects a near-null-space mode appearing when an active-set boundary is crossed.
 Capturing that mode by deflation or recombination---treating a global active-set mode on coarse levels---would

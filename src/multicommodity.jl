@@ -75,7 +75,7 @@ function mc_blk_precond(N::DirectedNetwork, fk, fa, γ)
     W = (fk ./ γ) .- (ci ./ γ^2) .* (fk .^ 2)                 # (G_a)_kk > 0, per-commodity conductances
     # relative conductance floor keeps each commodity's Laplacian well-conditioned & connected (a commodity
     # barely uses most arcs → tiny W there); floor bounds the contrast so approxChol stays robust.
-    acs = [_ac(N.B * spdiagm(0 => max.(W[:, k], 1e-6 * maximum(W[:, k]))) * N.B') for k in 1:K]
+    acs = [_ac(N.B * spdiagm(0 => max.(W[:, k], 1e-12 * maximum(W[:, k]))) * N.B') for k in 1:K]
     r -> hcat([acs[k](r[:, k]) for k in 1:K]...)
 end
 

@@ -40,7 +40,10 @@ count while a direct factorization scales superlinearly, so on large \emph{irreg
 crossover; the design optimization inherits this near-linear per-step cost. We are explicit that road networks,
 being near-planar, are the regime where a direct nested-dissection factorization is already near-optimal and the
 near-linear solver does \emph{not} win; the advantage is on the poorly-separable networks that model selfish
-routing in communication systems. Code is available at \url{https://github.com/orenlivne/dnlf}.
+routing in communication systems. We further extend the framework to the \emph{multicommodity} logit stochastic
+user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
+preconditioner solves in single-digit iterations, and the design adjoint again returns the gradient for all
+tolls in one solve. Code is available at \url{https://github.com/orenlivne/dnlf}.
 \end{abstract}
 
 \begin{keywords}
@@ -126,10 +129,12 @@ equilibrium/design \emph{model} on standard large irregular topologies, compleme
 operator tools.
 
 The construction reuses the nonlinear Laplacian flow (NLF) solver~\cite{nlf} and its near-linear inner engines,
-approximate Cholesky~\cite{kyngsachdeva2016} and LAMG$+$~\cite{lamgplus}. We are explicit about remaining scope
-(\cref{sec:conclusion}): our experiments are single-commodity; multicommodity OD and a full corpus study are the
-natural next steps, and an active-set deflation that would make \emph{one} hierarchy valid across all design
-steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$ total) is left open.
+approximate Cholesky~\cite{kyngsachdeva2016} and LAMG$+$~\cite{lamgplus}. We treat both the single-commodity
+directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
+equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
+single-digit. Remaining scope (\cref{sec:conclusion}): an active-set deflation that would make \emph{one}
+hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
+total) is left open.
 
 \section{The directed equilibrium is a nonlinear Laplacian flow}\label{sec:formulation}
 Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{h(a)}-e_{t(a)}$
@@ -167,11 +172,10 @@ inactive (dead-zone) arcs. \qed
 \Cref{prop:laplacian} is the structural fact this paper rests on: directedness enters only through \emph{which}
 arcs are active (a routing boundary), not through the type of the linear operator. Every linearized solve is a
 graph-Laplacian solve, so a near-linear Laplacian engine applies. This is complete for the single-commodity
-equilibrium treated here (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
-($f_a=\sum_k f_a^k$ with a cost of the total flow) preserves symmetry---the per-arc block coupling is
-$t'_a\,\mathbf{1}\mathbf{1}^\top$---but the coupled block system is Laplacian-plus-low-rank per arc rather than a
-plain Laplacian, and whether a near-linear engine handles it efficiently is open; we therefore scope the
-near-linear claim to the single-commodity case and treat multicommodity as future work (\cref{sec:conclusion}).
+equilibrium (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
+($f_a=\sum_k f_a^k$ with a cost of the total flow) yields a coupled \emph{block} system---per-commodity
+Laplacians with a rank-one commodity coupling per arc---which a distribution-matrix block preconditioner still
+solves in single-digit iterations; we develop this in \cref{sec:mc} (\cref{prop:mc}).
 
 \section{A near-linear equilibrium solver}\label{sec:solver}
 We solve \cref{eq:nlf} by damped chord-Newton on the frozen-linearization Jacobian $J$, delegating each
@@ -312,8 +316,8 @@ marginal-cost (Pigouvian) tolls bottoms out at $5.12\%$, confirming the gradient
 point. Solving every equilibrium only to a loose $10^{-3}$ tolerance reaches the \emph{same} optimum (TSTT within
 $0.004\%$, tolls within $\|\Delta\tau\|=0.13$), confirming that the design gradient is insensitive to
 intermediate solve accuracy---so the loose-intermediate continuation used for scaling costs nothing in design
-quality. The reduction is modest because a single origin--destination pair admits little rerouting; larger,
-multicommodity instances (\cref{sec:conclusion}) exercise the design problem more fully.
+quality. The reduction is modest because a single origin--destination pair admits little rerouting; the
+multicommodity instances of \cref{sec:mc} exercise the design problem more fully.
 
 \paragraph{Scaling on irregular networks.}
 We use loose tolerances at intermediate continuation levels---a few Newton steps per $\delta$-level, tight only
@@ -447,10 +451,93 @@ section with timing; \texttt{scripts/scaling\_synthetic.jl} regenerates the size
 (\cref{tab:scaling}, \cref{fig:scaling}) and its fitted exponents; \texttt{scripts/scaling.jl} regenerates the
 real-corpus table (\cref{tab:corpus}) over the public SuiteSparse/SNAP graph collection; both compare against
 the fair frozen-per-level direct baseline. \texttt{scripts/baseline\_firstorder.jl} regenerates the
-first-order head-to-head (\cref{tab:baseline}), and \texttt{test/runtests.jl} verifies every algorithm
-component, including \cref{prop:laplacian,prop:conv,prop:adjoint}. The test networks are the TNTP Sioux Falls
+first-order head-to-head (\cref{tab:baseline}); \texttt{examples/reproduce\_mc.jl} regenerates the
+multicommodity logit-SUE design (\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm
+component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc}. The test networks are the TNTP Sioux Falls
 instance (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
 \texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
+
+\section{Multicommodity logit stochastic user equilibrium and design}\label{sec:mc}
+The single-commodity solver of \cref{sec:solver} routes a general balanced demand as one fungible flow.
+Realistic congestion pricing is inherently \emph{multicommodity}: each origin--destination (OD) pair routes its
+own flow over the shared congested network, and tolls are designed against that coupled equilibrium. We extend
+the framework to the multicommodity \emph{logit stochastic user equilibrium} (SUE)~\cite{fisk1980,daganzo1977},
+in which route choice has a dispersion $\gamma>0$---a calibrated behavioural parameter, not a numerical
+smoothing. The same near-linear machinery carries over: the multicommodity Newton system is a coupled
+block-Laplacian that a distribution-matrix block preconditioner solves in a handful of iterations, and the design
+adjoint again returns $\nabla_\tau\mathrm{TSTT}$ for all tolls in a single solve.
+
+\paragraph{Formulation.}
+With $K$ commodities, per-commodity arc flows $f^k\ge0$, total flow $f_a=\sum_k f^k_a$, and the shared cost
+$t_a(f_a)$, the entropic-regularized Beckmann program is
+\begin{equation}\label{eq:mcbeck}
+  \min_{f^k\ge0}\ \sum_a T_a(f_a)+\gamma\sum_{a,k}f^k_a\bigl(\log f^k_a-1\bigr)
+  \quad\text{s.t.}\quad B f^k=d^k,\quad k=1,\dots,K,
+\end{equation}
+with $T_a'=t_a$. Its stationarity conditions give the \emph{logit assignment}
+$f^k_a=\exp\!\bigl((g^k_a-t_a(f_a))/\gamma\bigr)$ with $g^k_a=(B^\top\phi^k)_a$: a per-arc softmax over commodities
+whose total $f_a$ solves a monotone scalar fixed point $\log f_a=\mathrm{logsumexp}_k(g^k_a/\gamma)-t_a(f_a)/\gamma$.
+As $\gamma\to0$ the model tends to deterministic user equilibrium; we solve at a fixed, calibrated $\gamma$.
+
+\begin{proposition}[the multicommodity Newton system is a coupled block Laplacian]\label{prop:mc}
+At a logit equilibrium the reduced Newton Jacobian in the stacked potentials $\Phi=[\phi^1;\dots;\phi^K]$ is
+\begin{equation}\label{eq:mcjac}
+  J=\underbrace{\tfrac1\gamma\,\mathrm{blkdiag}_k\!\bigl(B\,\mathrm{diag}(f^k)\,B^\top\bigr)}_{K\ \text{per-commodity Laplacians}}
+   -\tfrac1{\gamma^2}\sum_a c_a\,(f_a f_a^\top)\otimes b_a b_a^\top,\qquad
+   c_a=\frac{t'_a}{1+t'_a f_a/\gamma},
+\end{equation}
+where $b_a=Be_a$ and $f_a=(f^1_a,\dots,f^K_a)^\top$. Each diagonal block is a symmetric weighted graph Laplacian;
+the coupling is symmetric positive semidefinite and rank one per arc. For $K=1$, \cref{eq:mcjac} collapses to the
+single-commodity active Laplacian $B\,\mathrm{diag}(1/t'_a)\,B^\top$ of \cref{prop:laplacian}.
+\end{proposition}
+\begin{proof}
+The equilibrium is $R^k(\Phi)=-Bf^k(\Phi)-d^k=0$. Differentiating the logit map,
+$\mathrm{d}f^k_a=(f^k_a/\gamma)(\mathrm{d}g^k_a-t'_a\,\mathrm{d}f_a)$ and $\mathrm{d}f_a=\sum_l\mathrm{d}f^l_a$; solving
+the latter gives $\mathrm{d}f_a=(\gamma+t'_af_a)^{-1}\sum_l f^l_a\,\mathrm{d}g^l_a$. Substituting and using
+$\mathrm{d}g^k=B^\top\mathrm{d}\phi^k$, $\mathrm{d}R^k=-B\,\mathrm{d}f^k$ yields \cref{eq:mcjac}. Equivalently
+$J=\tilde B H^{-1}\tilde B^\top$ with $\tilde B=I_K\otimes B$ and per-arc flow-Hessian
+$H_a=t'_a\mathbf1\mathbf1^\top+\gamma\,\mathrm{diag}(1/f^k_a)$; Sherman--Morrison gives
+$H_a^{-1}=\tfrac1\gamma\mathrm{diag}(f^k_a)-\tfrac{c_a}{\gamma^2}f_af_a^\top$, and for $K=1$,
+$f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$.
+\end{proof}
+
+\paragraph{Near-linear solve.}
+We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
+block diagonal---one near-linear approximate-Cholesky solve per commodity. The rank-one commodity coupling is
+exactly Brandt's \emph{distribution matrix}~\cite{brandt1984}: in the mean/deviation basis over commodities it
+decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
+their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit, grows only
+logarithmically in $K$, and is independent of graph size $n$; each Newton step therefore costs $O(K)$ near-linear
+solves, and the equilibrium solve is near-linear in the total size $Kn$ in \emph{iterations}. The wall-clock
+realizes this when the per-commodity Laplacians are well conditioned for the algebraic-multigrid factorization,
+which holds for well-spread multi-OD demands (the realistic congestion-pricing regime); a commodity concentrated
+on a single OD pair yields a near-singular block that falls back to a pinned direct solve---preserving
+correctness and the iteration count at some wall-clock cost. A coupling-aware preconditioner that removes this
+fallback is left to future work.
+
+\paragraph{Design.}
+Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity
+$\partial f^k_a/\partial\tau_a=-f^k_a c_a$. The same adjoint as \cref{sec:design} returns $\nabla_\tau\mathrm{TSTT}$
+for all tolls from a single block-preconditioned solve $J\lambda=\partial_\Phi\mathrm{TSTT}$. The adjoint matches
+central finite differences to under $10^{-3}$ (verified in \texttt{test/runtests.jl}), and on a multicommodity
+instance ($K=8$) projected-gradient tolling reduces TSTT by $2.1\%$ with each equilibrium re-solve costing
+single-digit ($\approx6$) inner iterations---the entire bilevel iteration inheriting the near-linear per-step
+cost.
+
+\begin{table}[t]\centering
+\caption{Multicommodity logit-SUE inner conjugate-gradient iterations (block-preconditioned) on irregular
+networks, $\gamma=0.1$. Left: vs.\ commodities $K$ ($n=1500$), single-OD and spread demands. Right: vs.\ graph
+size $n$ ($K=8$, spread). Single-digit, $\log K$ growth, $n$-independent.}
+\label{tab:mc}
+\begin{tabular}{rrr@{\qquad}rr}\toprule
+$K$ & single-OD & spread & $n$ (at $K{=}8$) & iters\\\midrule
+$2$  & $3$  & $2$  & $1{,}000$ & $6$\\
+$4$  & $3$  & $3$  & $2{,}000$ & $6$\\
+$8$  & $7$  & $6$  & $4{,}000$ & $7$\\
+$12$ & $13$ & $10$ & $8{,}000$ & $3$\\
+$16$ & $12$ & $9$  &           &  \\\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Related work}\label{sec:related}
 \paragraph{Bilevel network design and sensitivity.}
@@ -485,10 +572,13 @@ the adjoint design gradient---a short sequence of near-linear Laplacian solves, 
 number of multigrid setups and near-linear wall-clock. Bilevel toll design then inherits a near-linear per-step
 cost, in place of the cubic factorization of sensitivity-analysis methods.
 
-We are explicit about what this paper does \emph{not} yet establish. (i) \textbf{Multicommodity OD.} Our
-experiments are single-commodity; \cref{prop:laplacian} extends to the full OD table with a block Laplacian, and
-implementing the destination-bundled multicommodity solve is the immediate next step for realistic
-congestion-pricing instances. (ii) \textbf{Corpus scaling.} The near-linear claim is shown on one size-scaled
+We are explicit about what this paper does \emph{not} yet establish. (i) \textbf{Multicommodity scope.}
+\Cref{sec:mc} solves and designs the multicommodity \emph{logit} (stochastic) user equilibrium at a fixed
+dispersion $\gamma$; the \emph{deterministic} multicommodity limit ($\gamma\to0$), where per-commodity flows
+become non-unique and the block preconditioner's spread grows, and a study over real OD-matrix instances (e.g.\
+TNTP city networks) remain open. Highly concentrated single-OD commodity blocks are near-singular for the
+multigrid factorization and fall back to a pinned direct solve; a coupling-aware (distribution-matrix)
+preconditioner that removes this fallback is the natural refinement. (ii) \textbf{Corpus scaling.} The near-linear claim is shown on one size-scaled
 family; a study across a large graph corpus (as for related near-linear solvers) is needed to state the exponent
 with confidence. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
 design steps saves only a modest factor, because each exact solve intrinsically rebuilds once per $\delta$-level:
@@ -533,6 +623,13 @@ sparse, and simple}, in Proc.\ FOCS, 2016, pp.~573--582.
 arXiv:2606.24791; accepted, SIAM Journal on Scientific Computing.
 \bibitem{nlf} O.~E.~Livne, \emph{NLF: a resistor-network framework and linear-time solver for convex network-flow
 equilibria}, SIAM Journal on Scientific Computing (under review), 2026.
+\bibitem{fisk1980} C.~Fisk, \emph{Some developments in equilibrium traffic assignment}, Transportation Research
+Part B, 14 (1980), pp.~243--255.
+\bibitem{daganzo1977} C.~F.~Daganzo and Y.~Sheffi, \emph{On stochastic models of traffic assignment},
+Transportation Science, 11 (1977), pp.~253--274.
+\bibitem{brandt1984} A.~Brandt, \emph{Multigrid techniques: 1984 guide with applications to fluid dynamics},
+GMD-Studien Nr.~85, Gesellschaft f\"ur Mathematik und Datenverarbeitung, 1984 (distributive/distribution-matrix
+relaxation, \S3.4).
 \bibitem{amos2017} B.~Amos and J.~Z.~Kolter, \emph{OptNet: differentiable optimization as a layer in neural
 networks}, in Proc.\ ICML, 2017, pp.~136--145.
 \bibitem{blondel2022} M.~Blondel et al., \emph{Efficient and modular implicit differentiation}, in Proc.\

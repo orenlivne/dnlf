@@ -5,6 +5,19 @@ r, s, D = 1, 20, 3.0e4                         # a congested single-OD instance 
 d = zeros(net.n); d[r] = D; d[s] = -D
 reldiff(a, b) = norm(a - b) / max(norm(b), 1e-30)
 
+# small irregular (poorly-separable) network for the multicommodity tests — the solver's target regime,
+# unlike the tiny structured SiouxFalls road graph
+function mc_randnet(n; deg = 6, seed = 11)
+    rng = MersenneTwister(seed); E = Set{Tuple{Int,Int}}()
+    for u in 1:n, _ in 1:deg; v = rand(rng, 1:n); v == u && continue; push!(E, (min(u, v), max(u, v))); end
+    es = collect(E); ii = Int[]; tt = Int[]
+    for (u, v) in es; push!(ii, u); push!(tt, v); push!(ii, v); push!(tt, u); end
+    m = length(ii); Bm = sparse([ii; tt], [1:m; 1:m], [fill(-1.0, m); fill(1.0, m)], n, m)
+    DNLF.DirectedNetwork(n, m, ii, tt, 1000 .*(0.5 .+ rand(rng, m)), 1 .+ rand(rng, m),
+                         fill(0.15, m), fill(4.0, m), Bm)
+end
+mcnet = mc_randnet(200)
+
 @testset "DNLF — full algorithm coverage" begin
 
     # ---- Phase 0: parsing & network construction ----
@@ -140,5 +153,43 @@ reldiff(a, b) = norm(a - b) / max(norm(b), 1e-30)
             acc || break
         end
         @test T < T0 && (1 - T / T0) > 0.04 && mono
+    end
+
+    # ---- Phase 6: multicommodity logit stochastic user equilibrium (small irregular graph mcnet) ----
+    @testset "multicommodity logit-SUE: flow map / Jacobian / solve / γ→0" begin
+        Random.seed!(1); K = 3; γ = 0.2; mn = mcnet
+        dk = [(v = zeros(mn.n); v[o] = 3.0e3; v[t] = -3.0e3; v) for (o, t) in ((1, 100), (3, 150), (5, 180))]
+        φ = 0.3 .* randn(mn.n, K); fk, fa = DNLF.mc_flows(mn, φ, γ)
+        @test reldiff(vec(sum(fk, dims = 2)), fa) < 1e-10               # shares sum to total
+        okkt = 0.0                                                      # per-arc KKT stationarity
+        for a in 1:mn.m, k in 1:K
+            fk[a, k] < 1e-8 * fa[a] && continue
+            g = φ[mn.ini[a], k] - φ[mn.ter[a], k]
+            okkt = max(okkt, abs(γ*log(fk[a, k]) + DNLF.tcost(mn, a, fa[a]) - g)/(abs(g) + 1))
+        end
+        @test okkt < 1e-9
+        e = 0.2 .* randn(mn.n, K); for k in 1:K; e[:, k] .-= sum(e[:, k])/mn.n; end     # exact J vs FD
+        ε = 1e-6; fp, _ = DNLF.mc_flows(mn, φ .+ ε.*e, γ); fm, _ = DNLF.mc_flows(mn, φ .- ε.*e, γ)
+        fd = (DNLF.mc_resid(mn, fp, dk) .- DNLF.mc_resid(mn, fm, dk)) ./ (2ε)
+        @test reldiff(DNLF.mc_jac(mn, fk, fa, γ, e), fd) < 1e-5
+        _, fks, _, its = solve_sue(mn, dk, γ)                          # solver reaches equilibrium
+        @test norm(DNLF.mc_resid(mn, fks, dk)) / norm(hcat(dk...)) < 1e-7
+        @test its ≤ 40                                                  # bounded (single-digit) inner iterations
+        d1 = [(v = zeros(mn.n); v[1] = 3.0e3; v[100] = -3.0e3; v)]      # K=1 → deterministic as γ→0
+        _, fdet, _ = DNLF.solve_flow(mn, d1[1], zeros(mn.m); tol = 1e-10)
+        _, _, fa_a, _ = solve_sue(mn, d1, 0.08); _, _, fa_b, _ = solve_sue(mn, d1, 0.02)
+        @test reldiff(fa_b, fdet) < reldiff(fa_a, fdet)
+    end
+
+    @testset "multicommodity design adjoint vs finite differences" begin
+        Random.seed!(2); K = 2; γ = 0.3; mn = mc_randnet(60; seed = 5)   # tiny net: fast + exact re-solves
+        dk = [(v = zeros(mn.n); v[o] = 2.0e3; v[t] = -2.0e3; v) for (o, t) in ((1, 40), (3, 55))]
+        _, fke, fae, _ = solve_sue(mn, dk, γ; tol = 1e-11)
+        g = DNLF.mc_adjoint(mn, fke, fae, γ)                            # ∇_τ TSTT, one adjoint solve
+        a = argmax(fae); εt = 0.05                                      # FD-check the most active arc
+        τp = zeros(mn.m); τp[a] += εt; _, _, fap, _ = solve_sue(mn, dk, γ; tolls = τp, tol = 1e-11)
+        τm = zeros(mn.m); τm[a] -= εt; _, _, fam, _ = solve_sue(mn, dk, γ; tolls = τm, tol = 1e-11)
+        fd = (DNLF.mc_tstt(mn, fap) - DNLF.mc_tstt(mn, fam)) / (2εt)
+        @test abs(g[a] - fd) / max(abs(fd), 1.0) < 5e-2
     end
 end

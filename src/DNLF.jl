@@ -22,7 +22,8 @@ import Laplacians               # approxchol_lap — the swappable near-linear i
 using LinearAlgebra, SparseArrays, Printf
 
 export DirectedNetwork, load_tntp_net, solve_ue, solve_flow, solve_ue_direct, frank_wolfe, tstt,
-       toll_gradient, adjoint_grad, approxchol_builder, lu_builder, rectified_law, ue_energy, smoothed_law
+       toll_gradient, adjoint_grad, approxchol_builder, lu_builder, rectified_law, ue_energy, smoothed_law,
+       solve_sue, mc_flows, mc_resid, mc_jac, mc_blk_precond, mc_pcg, mc_tstt, mc_adjoint
 
 "Directed network with separable BPR arc costs `t_a(f) = t⁰(1 + b (f/c)^p)`."
 struct DirectedNetwork
@@ -298,5 +299,7 @@ function frank_wolfe(N::DirectedNetwork, r, s, D; iters = 4000)
     end
     f
 end
+
+include("multicommodity.jl")
 
 end # module

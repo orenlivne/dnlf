@@ -34,7 +34,8 @@ function mc_flows(N::DirectedNetwork, φ::AbstractMatrix, γ; tolls = nothing)
     @inbounds for a in 1:m
         gk = ntuple(k -> φ[N.ini[a], k] - φ[N.ter[a], k], K)
         L = _logsumexp(collect(gk) ./ γ); fa[a] = mc_arc_total(N, a, L, γ, tolls === nothing ? 0.0 : tolls[a])
-        for k in 1:K; fk[a, k] = fa[a] * exp(gk[k]/γ - L); end
+        isfinite(fa[a]) || (fa[a] = 1e12)                     # cap a blown-up step to finite (line search rejects it)
+        for k in 1:K; fk[a, k] = fa[a] * exp(min(gk[k]/γ - L, 0.0)); end
     end
     fk, fa
 end
@@ -107,10 +108,11 @@ function solve_sue(N::DirectedNetwork, d, γ; γ0 = 2.0, tol = 1e-8, tolls = not
             fk, fa = mc_flows(N, φ, gk; tolls = tolls); R = mc_resid(N, fk, d); rn = norm(R)/dn
             rn < tol && break
             dφ, its = mc_pcg(N, fk, fa, gk, -R, mc_blk_precond(N, fk, fa, gk)); lastits = its
+            all(isfinite, dφ) || break                       # reject a non-finite Newton step
             α = 1.0
-            for _ in 1:30
-                fk2, _ = mc_flows(N, φ .+ α .* dφ, gk; tolls = tolls)
-                norm(mc_resid(N, fk2, d))/dn < rn && break
+            for _ in 1:30                                     # backtracking with a finiteness guard
+                fk2, _ = mc_flows(N, φ .+ α .* dφ, gk; tolls = tolls); r2 = norm(mc_resid(N, fk2, d))/dn
+                (isfinite(r2) && r2 < rn) && break
                 α /= 2
             end
             φ .+= α .* dφ

@@ -451,9 +451,10 @@ section with timing; \texttt{scripts/scaling\_synthetic.jl} regenerates the size
 (\cref{tab:scaling}, \cref{fig:scaling}) and its fitted exponents; \texttt{scripts/scaling.jl} regenerates the
 real-corpus table (\cref{tab:corpus}) over the public SuiteSparse/SNAP graph collection; both compare against
 the fair frozen-per-level direct baseline. \texttt{scripts/baseline\_firstorder.jl} regenerates the
-first-order head-to-head (\cref{tab:baseline}); \texttt{examples/reproduce\_mc.jl} regenerates the
-multicommodity logit-SUE design (\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm
-component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc}. The test networks are the TNTP Sioux Falls
+first-order head-to-head (\cref{tab:baseline}); \texttt{scripts/scaling\_mc.jl} regenerates the multicommodity
+iteration table (\cref{tab:mc}) and \texttt{examples/reproduce\_mc.jl} the multicommodity design
+(\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm component, including
+\cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc}. The test networks are the TNTP Sioux Falls
 instance (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
 \texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
 
@@ -487,8 +488,8 @@ At a logit equilibrium the reduced Newton Jacobian in the stacked potentials $\P
    c_a=\frac{t'_a}{1+t'_a f_a/\gamma},
 \end{equation}
 where $b_a=Be_a$ and $f_a=(f^1_a,\dots,f^K_a)^\top$. Each diagonal block is a symmetric weighted graph Laplacian;
-the coupling is symmetric positive semidefinite and rank one per arc. For $K=1$, \cref{eq:mcjac} collapses to the
-single-commodity active Laplacian $B\,\mathrm{diag}(1/t'_a)\,B^\top$ of \cref{prop:laplacian}.
+the coupling is symmetric positive semidefinite and rank one per arc. For $K=1$, \cref{eq:mcjac} reduces, as
+$\gamma\to0$, to the single-commodity active Laplacian $B\,\mathrm{diag}(1/t'_a)\,B^\top$ of \cref{prop:laplacian}.
 \end{proposition}
 \begin{proof}
 The equilibrium is $R^k(\Phi)=-Bf^k(\Phi)-d^k=0$. Differentiating the logit map,
@@ -506,28 +507,33 @@ We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, prec
 block diagonal---one near-linear approximate-Cholesky solve per commodity. The rank-one commodity coupling is
 exactly Brandt's \emph{distribution matrix}~\cite{brandt1984}: in the mean/deviation basis over commodities it
 decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
-their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit, grows only
-logarithmically in $K$, and is independent of graph size $n$; each Newton step therefore costs $O(K)$ near-linear
-solves, and the equilibrium solve is near-linear in the total size $Kn$ in \emph{iterations}. The wall-clock
-realizes this when the per-commodity Laplacians are well conditioned for the algebraic-multigrid factorization,
-which holds for well-spread multi-OD demands (the realistic congestion-pricing regime); a commodity concentrated
-on a single OD pair yields a near-singular block that falls back to a pinned direct solve---preserving
-correctness and the iteration count at some wall-clock cost. A coupling-aware preconditioner that removes this
-fallback is left to future work.
+their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
+grows only logarithmically in $K$, and is independent of graph size $n$ at the operating dispersion
+$\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, and the equilibrium solve is
+near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor
+($10^{-12}$ of its maximum weight) so it stays connected and the approximate-Cholesky factorization remains
+applicable even to a commodity that concentrates on few arcs; a pinned direct solve is retained only as a
+fallback for the rare inputs on which the multigrid factorization throws. The iteration count degrades as
+$\gamma\to0$---there the per-commodity flows concentrate, the blocks become high-contrast, and the count rises
+into the hundreds by $\gamma\approx0.05$; this deterministic multicommodity limit, and a coupling-aware
+preconditioner robust to it, are open (\cref{sec:conclusion}). Fixed $\gamma$ is thus both the modelling choice
+(a calibrated route-choice dispersion) and the regime in which the block preconditioner is well conditioned.
 
 \paragraph{Design.}
 Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity
 $\partial f^k_a/\partial\tau_a=-f^k_a c_a$. The same adjoint as \cref{sec:design} returns $\nabla_\tau\mathrm{TSTT}$
 for all tolls from a single block-preconditioned solve $J\lambda=\partial_\Phi\mathrm{TSTT}$. The adjoint matches
 central finite differences to under $10^{-3}$ (verified in \texttt{test/runtests.jl}), and on a multicommodity
-instance ($K=8$) projected-gradient tolling reduces TSTT by $2.1\%$ with each equilibrium re-solve costing
-single-digit ($\approx6$) inner iterations---the entire bilevel iteration inheriting the near-linear per-step
-cost.
+instance ($K=8$) projected-gradient tolling reduces TSTT by $2.1\%$, converging toward the marginal-cost
+(Pigouvian) toll that prices essentially every congested arc, with each equilibrium re-solve costing single-digit
+($\approx6$) inner iterations---the bilevel iteration inheriting the near-linear per-step cost. A single-instance
+demonstration; a budget-constrained (sparse-toll) design and a multi-instance study are natural extensions.
 
 \begin{table}[t]\centering
 \caption{Multicommodity logit-SUE inner conjugate-gradient iterations (block-preconditioned) on irregular
 networks, $\gamma=0.1$. Left: vs.\ commodities $K$ ($n=1500$), single-OD and spread demands. Right: vs.\ graph
-size $n$ ($K=8$, spread). Single-digit, $\log K$ growth, $n$-independent.}
+size $n$ ($K=8$, spread). Single-digit to low double digit, $\log K$ growth, $n$-independent; regenerated by
+\texttt{scripts/scaling\_mc.jl}.}
 \label{tab:mc}
 \begin{tabular}{rrr@{\qquad}rr}\toprule
 $K$ & single-OD & spread & $n$ (at $K{=}8$) & iters\\\midrule

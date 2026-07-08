@@ -33,13 +33,15 @@ end
 insts = [(800,1,4,0.10,10,300.0),(800,1,8,0.10,10,300.0),(800,1,16,0.10,10,300.0),
          (800,1,8,0.15,10,300.0),(800,1,8,0.10,10,600.0),(800,2,8,0.10,8,400.0),
          (1200,1,8,0.10,12,300.0),(1600,1,8,0.10,12,300.0)]
-@printf("%-6s %-3s %-5s %-4s %-11s %-9s %-6s %-8s\n","n","K","γ","m","TSTT-red%","its","time","tolled%")
+# tolled% counts arcs with a NON-NEGLIGIBLE toll (τ > 1e-3 of the max) — projected gradient nudges nearly
+# every arc infinitesimally off zero, so a 1e-9 threshold would overstate the tolled fraction.
+@printf("%-6s %-3s %-5s %-7s %-11s %-6s %-12s\n","n","K","γ","load","TSTT-red%","its","tolled%(>1e-3)")
 DNLF.solve_sue(rand_net(300),[spread_demand(rand_net(300),MersenneTwister(1),8,300.0) for _ in 1:3],0.1) # compile
 for (n,sd,K,γ,S,D) in insts
     N=rand_net(n;seed=sd); rng=MersenneTwister(100+sd)
     dk=[spread_demand(N,rng,S,D) for _ in 1:K]
     _,fk,fa,its=solve_sue(N,dk,γ); T0=DNLF.mc_tstt(N,fa)
-    t=@elapsed ((τ,T)=toll_design(N,dk,γ,fk,fa))
-    @printf("%-6d %-3d %-5.2g %-4d %-11.2f %-9d %-6.0fs %-8.1f\n",
-            n,K,γ,N.m,100*(1-T/T0),its,t,100*count(>(1e-9),τ)/N.m)
+    ((τ,T))=toll_design(N,dk,γ,fk,fa); thr=1e-3*maximum(τ; init=0.0)
+    @printf("%-6d %-3d %-5.2g %-7.0f %-11.2f %-6d %-12.1f\n",
+            n,K,γ,S*D,100*(1-T/T0),its,100*count(>(thr),τ)/N.m)
 end

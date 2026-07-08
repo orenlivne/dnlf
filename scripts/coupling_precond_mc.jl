@@ -50,7 +50,7 @@ function saddle_minres(N,fk,fa,γ,b; tol=1e-7, maxit=400)
     rf=zeros(m,K); rc=-b
     # preconditioned MINRES (Paige–Saunders), preconditioner SPD
     xf=zeros(m,K); xc=zeros(n,K)
-    v1f,v1c=copy(rf),copy(rc); z1f,z1c=Pinv(v1f,v1c); β1=sqrt(ip((v1f,v1c),(z1f,z1c))); β1<1e-30 && return xc,0
+    v1f,v1c=copy(rf),copy(rc); z1f,z1c=Pinv(v1f,v1c); β1=sqrt(ip((v1f,v1c),(z1f,z1c))); (β1<1e-30||!isfinite(β1)) && return xc,maxit  # degenerate/NaN RHS = breakdown, not "0 iters"
     v1f./=β1; v1c./=β1; z1f./=β1; z1c./=β1
     v0f,v0c=zeros(m,K),zeros(n,K); β=β1; η=β1
     c0,c1=1.0,1.0; s0,s1=0.0,0.0
@@ -71,7 +71,7 @@ function saddle_minres(N,fk,fa,γ,b; tol=1e-7, maxit=400)
         if βn>1e-30; v1f,v1c=pf./βn,pc./βn; z1f,z1c=zf./βn,zc./βn; else; its=it; break; end
         β=βn; c0,c1=c1,c; s0,s1=s1,s
     end
-    xc,its
+    all(isfinite,xc) ? (xc,its) : (xc,maxit)             # non-finite iterate = breakdown (report as maxit)
 end
 
 N=rand_net(1500)

@@ -42,7 +42,7 @@ being near-planar, are the regime where a direct nested-dissection factorization
 near-linear solver does \emph{not} win; the advantage is on the poorly-separable networks that model selfish
 routing in communication systems. We further extend the framework to the \emph{multicommodity} logit stochastic
 user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
-preconditioner solves in single-digit iterations, and the design adjoint again returns the gradient for all
+preconditioner solves in a handful of iterations, and the design adjoint again returns the gradient for all
 tolls in one solve. Code is available at \url{https://github.com/orenlivne/dnlf}.
 \end{abstract}
 
@@ -132,7 +132,7 @@ The construction reuses the nonlinear Laplacian flow (NLF) solver~\cite{nlf} and
 approximate Cholesky~\cite{kyngsachdeva2016} and LAMG$+$~\cite{lamgplus}. We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
-single-digit. Remaining scope (\cref{sec:conclusion}): an active-set deflation that would make \emph{one}
+to a handful of iterations. Remaining scope (\cref{sec:conclusion}): an active-set deflation that would make \emph{one}
 hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
 total) is left open.
 
@@ -175,7 +175,7 @@ graph-Laplacian solve, so a near-linear Laplacian engine applies. This is comple
 equilibrium (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
 ($f_a=\sum_k f_a^k$ with a cost of the total flow) yields a coupled \emph{block} system---per-commodity
 Laplacians with a rank-one commodity coupling per arc---which a distribution-matrix block preconditioner still
-solves in single-digit iterations; we develop this in \cref{sec:mc} (\cref{prop:mc}).
+solves in a handful of iterations; we develop this in \cref{sec:mc} (\cref{prop:mc}).
 
 \section{A near-linear equilibrium solver}\label{sec:solver}
 We solve \cref{eq:nlf} by damped chord-Newton on the frozen-linearization Jacobian $J$, delegating each

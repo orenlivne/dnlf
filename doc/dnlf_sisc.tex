@@ -337,9 +337,9 @@ with either near-linear engine (the default LAMG$+$ and approximate Cholesky fit
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
 (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
 COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear
-solver overtakes the direct one at $m\approx2\times10^{4}$ edges ($n\approx2\times10^3$), beyond which it is faster
+solver overtakes the direct one at $m\approx1.5\times10^{4}$ edges ($n\approx1{,}500$), beyond which it is faster
 with a widening margin---about $1.6\times$ at $m=1.6\times10^5$ ($99$ vs.\ $161$~s)---and it reaches
-$m=6.4\times10^5$ in ${\approx}530$~s, where the direct factorization is infeasible: on our workstation it already
+$m=6.4\times10^5$ in ${\approx}526$~s, where the direct factorization is infeasible: on our workstation it already
 exhausts memory at $m=3.2\times10^5$, the random-graph fill-in exceeding RAM (\cref{tab:scaling}). Below the
 crossover the constant favors the direct solver. The wall-clock gap is real but modest at feasible sizes; the
 sharper practical separation is that direct factorization hits a memory wall the near-linear solver does not. We
@@ -350,14 +350,14 @@ number of chord-Newton steps ($\approx\!625$) and inner-engine setups ($\approx\
 exponent reflects the empirical scaling of a single \emph{near-linear inner solve}---$m^{1.11}$ for both LAMG$+$
 and approximate Cholesky ($m\,\mathrm{polylog}\,m$ in theory, the finite-range exponent inflated above $1$ by
 memory locality)---rather than any growth in the iteration count. The two engines are interchangeable, tracking
-the same $m^{1.11}$ curve within a few percent at every size; LAMG$+$ is the default for its \emph{reproducible}
-multigrid scaling---approximate Cholesky's randomized elimination showed larger run-to-run variance at the largest
-size ($m=6.4\times10^5$: $548$--$856$~s across our clean runs, against LAMG$+$'s stable $526$--$533$~s)---and for
-its cleaner theoretical near-linear guarantee. Loose intermediate tolerances realize this: solving every level tightly
+the same $m^{1.11}$ curve within a few percent at every size; LAMG$+$ is the default for its cleaner theoretical
+near-linear (multigrid $O(m)$) guarantee. It is also the steadier of the two at scale: approximate Cholesky's
+randomized elimination gave $m=6.4\times10^5$ times of $547.7$~s (\cref{tab:scaling}) and $856$~s on two clean
+runs, against LAMG$+$'s stable $526$--$533$~s. Loose intermediate tolerances realize this: solving every level tightly
 instead multiplies the Newton-step count and steepens the wall-clock, without changing the final solution
 (\cref{sec:results}).
 
-We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection---Internet
+We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
 autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
 (\cref{tab:corpus}; timed with approximate Cholesky, the interchangeable engine, at these sub-crossover sizes). The AMG setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
 the algorithm is size-optimal on real graphs. The head-to-head against the fair direct baseline is genuinely
@@ -395,8 +395,8 @@ clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) an
 \emph{same} exponent, $m^{1.11}$, and track within a few percent; direct scales as $m^{1.36}$ and is overtaken
 near $m\approx1.5\times10^4$. \emph{OOM}: direct factorization exhausts memory at $m\ge3.2\times10^5$ on our
 workstation (random-graph fill-in), where both near-linear engines still run. Approximate Cholesky's randomized
-elimination gives it larger run-to-run variance at the largest size ($548$--$856$~s across runs, vs.\ LAMG$+$'s
-stable ${\approx}530$~s)---hence LAMG$+$ is the default.}
+elimination makes it less predictable at the largest size (the $547.7$~s here rose to $856$~s on a second clean
+run, vs.\ LAMG$+$'s stable $526$--$533$~s); LAMG$+$ is the default for its cleaner theoretical $O(m)$ guarantee.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
 $n$ & $m$ & LAMG$+$ & approx.\ Cholesky & direct\\\midrule
@@ -509,7 +509,7 @@ $\mathrm{d}g^k=B^\top\mathrm{d}\phi^k$, $\mathrm{d}R^k=-B\,\mathrm{d}f^k$ yields
 $J=\tilde B H^{-1}\tilde B^\top$ with $\tilde B=I_K\otimes B$ and per-arc flow-Hessian
 $H_a=t'_a\mathbf1\mathbf1^\top+\gamma\,\mathrm{diag}(1/f^k_a)$; Sherman--Morrison gives
 $H_a^{-1}=\tfrac1\gamma\mathrm{diag}(f^k_a)-\tfrac{c_a}{\gamma^2}f_af_a^\top$, and for $K=1$,
-$f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$.
+$f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 \end{proof}
 
 \paragraph{Near-linear solve.}
@@ -620,7 +620,7 @@ and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itse
 Our adjoint \cref{eq:adjoint} is precisely that observation; the novelty here is not the $k$-independent gradient
 but the \emph{near-linear} operator that computes it and the forward solve. The same bilevel problem is studied
 in algorithmic game theory as optimal tolling and Stackelberg routing to reduce the price of anarchy of a
-congestion game~\citep{roughgarden2002,swamy2012,korilis1997}, and in communication networks as competitive /
+congestion game~\citep{roughgarden2002,swamy2012,korilis1997,cole2003}, and in communication networks as competitive /
 selfish routing~\citep{orda1993,larroca2013}; that literature focuses on existence, bounds, and mechanism design
 rather than on a scalable solver for the induced equilibrium, which is our concern. Recent differentiable-bilevel
 methods

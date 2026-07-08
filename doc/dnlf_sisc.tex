@@ -369,6 +369,24 @@ edge count alone. The controlled synthetic family (\cref{tab:scaling}) isolates 
 cleanly; the real corpus shows the near-linear solver is already competitive-to-faster on the actual
 application topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
+\paragraph{Corpus scaling.}
+To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
+the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
+SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
+word-association, and web networks---spanning $2.5\times10^4$ to $7\times10^5$ arcs ($1.5$ decades of edge count).
+The wall-clock fits $t\propto m^{0.99}$, and the inner-engine setup count stays in $[7,27]$ across the
+\emph{entire} corpus (\cref{fig:corpus}): near-linear and size-optimal on real graphs of every family, consistent
+with the $m^{1.11}$ of the controlled synthetic family (\cref{tab:scaling}). The corpus fit is flatter than the
+synthetic one because it mixes topologies of differing separator structure at each size rather than scaling a
+single family; both are near-linear.
+
+\begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
+\caption{Equilibrium solve time (default LAMG$+$ engine) vs.\ edge count across a topology-diverse corpus of
+$53$ irregular SuiteSparse/SNAP graphs (autonomous-system, peer-to-peer, collaboration, email, signed-social,
+citation, word-association, web). Wall-clock fits $t\propto m^{0.99}$ over $1.5$ decades, with a
+size-independent inner-engine setup count ($[7,27]$)---near-linear on real graphs of every family. Serial,
+uncontended timing on an Apple M5 Pro.}\label{fig:corpus}\end{figure}
+
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
 component): Internet AS graphs and P2P overlays. Near-linear approximate Cholesky vs.\ the fair
@@ -653,9 +671,10 @@ flows, for which Frank--Wolfe and related methods are already effective, and rea
 a fixed-$\gamma$ SUE solver rather than a deficiency of it. The coupling-aware distribution-matrix preconditioner
 we investigated (\cref{sec:mc}) converges $\gamma$-boundedly in its flow-space realization, confirming Brandt's
 construction, but does not improve on the block diagonal in the operating regime; a preconditioner strictly
-better as $\gamma\to0$ would only matter for that separate deterministic model. (ii) \textbf{Corpus scaling.} The near-linear claim is shown on one size-scaled
-family; a study across a large graph corpus (as for related near-linear solvers) is needed to state the exponent
-with confidence. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
+better as $\gamma\to0$ would only matter for that separate deterministic model. (ii) \textbf{Corpus scaling.} The near-linear exponent is confirmed both on the
+controlled synthetic family ($m^{1.11}$) and across a $53$-graph topology-diverse SuiteSparse/SNAP corpus
+($m^{0.99}$ with size-independent setups; \cref{fig:corpus}); a still-larger corpus (thousands of graphs) would
+tighten the exponent further. (iii) \textbf{One hierarchy across design steps.} Reusing a single frozen hierarchy across all
 design steps saves only a modest factor, because each exact solve intrinsically rebuilds once per $\delta$-level:
 the exploding condition number reflects a near-null-space mode appearing when an active-set boundary is crossed.
 Capturing that mode by deflation or recombination---treating a global active-set mode on coarse levels---would

@@ -1,20 +1,30 @@
-\documentclass[review]{siamart220329}
-
-\usepackage{amsmath,amssymb,booktabs,graphicx,enumitem,algpseudocode,algorithm}
+\documentclass[ijoc]{informs3}
+\OneAndAHalfSpacedXI
+\usepackage{natbib}
+ \bibpunct[, ]{(}{)}{,}{a}{}{,}%
+ \def\bibfont{\small}%
+ \def\bibsep{\smallskipamount}%
+ \def\bibhang{24pt}%
+ \def\newblock{\ }%
+ \def\BIBand{and}%
+\TheoremsNumberedThrough
+\ECRepeatTheorems
+\EquationsNumberedThrough
+\usepackage{amsmath,amssymb,booktabs,graphicx,enumitem,algorithm,algpseudocode}
+\usepackage[capitalize]{cleveref}
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Om}{\mathcal{O}(m)}
-\hypersetup{colorlinks=true,allcolors=blue!55!black}
-
-\title{A Near-Linear-Time Solver for Bilevel Congestion Network Design
-via Directed Nonlinear Laplacian Flow\thanks{Submitted to the editors \today.}}
-\author{Oren E. Livne\thanks{Pine Birch Analytics, Churchville, PA
-(\texttt{oren.livne@gmail.com}).}}
-\headers{Near-linear bilevel congestion network design}{O. E. Livne}
 
 \begin{document}
-\maketitle
-
-\begin{abstract}
+\RUNAUTHOR{Livne}
+\RUNTITLE{Near-linear bilevel congestion network design}
+\TITLE{A Near-Linear-Time Solver for Bilevel Congestion Network Design
+via Directed Nonlinear Laplacian Flow}
+\ARTICLEAUTHORS{%
+\AUTHOR{Oren E. Livne}
+\AFF{Pine Birch Analytics, Churchville, PA, \EMAIL{oren.livne@gmail.com}}
+}
+\ABSTRACT{
 Bilevel traffic network design---optimizing link tolls or capacities over a lower-level user
 equilibrium---is the workhorse formulation of congestion pricing, capacity planning, and origin--destination
 calibration. It is nonconvex and \emph{NP}-hard, and every practical method solves it by an outer optimization
@@ -44,18 +54,14 @@ routing in communication systems. We further extend the framework to the \emph{m
 user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
 preconditioner solves in a handful of iterations, and the design adjoint again returns the gradient for all
 tolls in one solve; on the Sioux Falls and Anaheim road networks with their published origin--destination
-matrices, destination-bundled design cuts total system travel time by $8$--$13\%$ with a bounded,
-size-independent inner-iteration count. Code is available at \url{https://github.com/orenlivne/dnlf}.
-\end{abstract}
+matrices, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$ with a bounded
+inner-iteration count. Code is available at \url{https://github.com/orenlivne/dnlf}.
+}
 
-\begin{keywords}
-network design, traffic assignment, user equilibrium, bilevel optimization, nonlinear Laplacian flow,
-algebraic multigrid, adjoint sensitivity, congestion pricing
-\end{keywords}
+\KEYWORDS{network design; traffic assignment; user equilibrium; bilevel optimization; nonlinear Laplacian
+flow; algebraic multigrid; adjoint sensitivity; congestion pricing}
 
-\begin{AMS}
-90B20, 90C35, 65F08, 65K10, 90C33, 49M15
-\end{AMS}
+\maketitle
 
 \section{Introduction}\label{sec:intro}
 Given a road network with $m$ directed links and travel-time (latency) functions $t_a(f_a)$ that increase with
@@ -69,21 +75,20 @@ objective $F$, most commonly total system travel time (TSTT), subject to the ind
 \qquad\text{s.t.}\qquad f^\star(\tau)\ \text{solves the UE at design }\tau .
 \end{equation}
 This bilevel program is the standard model for congestion pricing, capacity planning, and demand estimation.
-It is nonconvex and nondifferentiable, and \emph{NP}-hard even with affine latencies~\cite{gairing2017}; second-best
-tolling is \emph{NP}-hard as well~\cite{hoefer2008}. Practical methods therefore seek a local (KKT) stationary
-point, and essentially all of them---sensitivity-analysis-based (SAB) descent~\cite{tobinfriesz1988,jp2007,chiou2005},
+It is nonconvex and nondifferentiable, and \emph{NP}-hard even with affine latencies~\citep{gairing2017}; second-best
+tolling is \emph{NP}-hard as well~\citep{hoefer2008}. Practical methods therefore seek a local (KKT) stationary
+point, and essentially all of them---sensitivity-analysis-based (SAB) descent~\citep{tobinfriesz1988,jp2007,chiou2005},
 mathematical programs with equilibrium constraints, and metaheuristics---share one structure: an \emph{outer}
 loop in which each iteration solves the lower-level equilibrium and then a sensitivity (equilibrium derivative).
 
 \paragraph{The cost, and where it lives.}
-The design gradient itself is cheap in the number of design variables: since Tobin and
-Friesz~\cite{tobinfriesz1988}, $\nabla_\tau F$ is obtained by factorizing the equilibrium Jacobian \emph{once}
+The design gradient itself is cheap in the number of design variables: since \citet{tobinfriesz1988}, $\nabla_\tau F$ is obtained by factorizing the equilibrium Jacobian \emph{once}
 and back-substituting one right-hand side per design variable, so its cost is independent of $k$ (an adjoint /
-implicit-function computation~\cite{jp2007,amos2017,blondel2022}). The bottleneck is that this Jacobian
+implicit-function computation~\citep{jp2007,amos2017,blondel2022}). The bottleneck is that this Jacobian
 factorization---and the lower-level solve that precedes it---is a \emph{direct} sparse factorization whose cost
 is superlinear (cubic in the active-path/subnetwork size) or a slowly converging Frank--Wolfe assignment. This
 is why exact design methods in the literature stall near Sioux Falls scale ($76$ links) while origin-based
-forward assignment routinely reaches $4\times10^4$--$7.5\times10^4$ links~\cite{bargera2002,dial2006}. The gap
+forward assignment routinely reaches $4\times10^4$--$7.5\times10^4$ links~\citep{bargera2002,dial2006}. The gap
 between forward and design scalability is one to two orders of magnitude, and it is a \emph{linear-algebra} gap.
 
 \paragraph{Contribution.}
@@ -112,26 +117,26 @@ $m$, so design inherits the near-linear inner cost.
 \end{enumerate}
 \paragraph{Scope: where the advantage lives.}
 The lower-level equilibrium \cref{eq:nlf} is the Wardrop (user) equilibrium of a nonlinear \emph{congestion
-game}~\cite{rosenthal1973,roughgarden2002}, and the design problem \cref{eq:bilevel} is the optimal-tolling /
-Stackelberg problem of reducing the price of anarchy~\cite{swamy2012,korilis1997}. This model describes selfish
+game}~\citep{rosenthal1973,roughgarden2002}, and the design problem \cref{eq:bilevel} is the optimal-tolling /
+Stackelberg problem of reducing the price of anarchy~\citep{swamy2012,korilis1997}. This model describes selfish
 routing not only in road traffic but in \emph{communication and overlay networks}---multipath and elastic-traffic
-routing games in the Internet, data-center fabrics, and peer-to-peer overlays~\cite{orda1993,larroca2013}. The
+routing games in the Internet, data-center fabrics, and peer-to-peer overlays~\citep{orda1993,larroca2013}. The
 distinction matters for scalability: road networks are near-planar, where a direct nested-dissection
 factorization of the equilibrium Jacobian is near-optimal and a near-linear Laplacian solver has nothing to
 beat. Communication and overlay topologies, by contrast, are large and \emph{poorly separable} (scale-free
 degree, no planar embedding), so a direct factorization fills in superlinearly---exactly the regime in which a
 near-linear Laplacian solver wins. Our scaling study is therefore on irregular networks, and we are explicit that
 the planar (road) case is \emph{not} where the method has an advantage. The most literal instance is selfish
-\emph{overlay} routing, where end hosts genuinely choose paths~\cite{qiu2003}, on Internet AS- and router-level
-graphs that are provably scale-free~\cite{faloutsos1999}. We do not overclaim: production traffic engineering
+\emph{overlay} routing, where end hosts genuinely choose paths~\citep{qiu2003}, on Internet AS- and router-level
+graphs that are provably scale-free~\citep{faloutsos1999}. We do not overclaim: production traffic engineering
 optimizes operator-set link weights or bandwidth allocations by linear programming and local
-search~\cite{fortz2000}, not by pricing a selfish equilibrium, and packet-level congestion control is a distinct
+search~\citep{fortz2000}, not by pricing a selfish equilibrium, and packet-level congestion control is a distinct
 (utility-maximization) equilibrium. Our contribution is a scalable solver for the well-established
 equilibrium/design \emph{model} on standard large irregular topologies, complementing rather than replacing
 operator tools.
 
-The construction reuses the nonlinear Laplacian flow (NLF) solver~\cite{nlf} and its near-linear inner engines,
-approximate Cholesky~\cite{kyngsachdeva2016} and LAMG$+$~\cite{lamgplus}. We treat both the single-commodity
+The construction reuses the nonlinear Laplacian flow (NLF) solver~\citep{nlf} and its near-linear inner engines,
+LAMG$+$~\citep{lamgplus} (the default) and approximate Cholesky~\citep{kyngsachdeva2016} (interchangeable). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
 to a handful of iterations. Remaining scope (\cref{sec:conclusion}): an active-set deflation that would make \emph{one}
@@ -161,10 +166,10 @@ For separable costs the Newton Jacobian of \cref{eq:nlf} is a symmetric, positiv
 Laplacian supported on the active arcs. Explicitly, with $\rho'_a\ge0$,
 \[
 J=B\,\mathrm{diag}(\rho')\,B^\top=\sum_{a}\rho'_a\,(e_{t(a)}-e_{h(a)})(e_{t(a)}-e_{h(a)})^\top ,
-\qquad \rho'_a=\tfrac{1}{t'_a(f_a)}>0 \text{ on active arcs},\ \rho'_a=0 \text{ else}.
+\quad \rho'_a=\tfrac{1}{t'_a(f_a)}>0 \text{ (active)},\ \rho'_a=0 \text{ (else)}.
 \]
 \end{proposition}
-\begin{proof}
+\begin{proof}{\it Proof.}
 Differentiating \cref{eq:nlf} in $\phi$ gives $J=B\,\mathrm{diag}(\rho'(B^\top\phi-\tau))\,B^\top$. The rank-one
 term $(e_{t(a)}-e_{h(a)})(e_{t(a)}-e_{h(a)})^\top$ is independent of the arc's orientation, and $\rho'_a\ge0$
 because $t_a$ is increasing; hence $J\succeq0$ is a weighted Laplacian, with weight $\rho'_a=0$ precisely on
@@ -183,7 +188,7 @@ solves in a handful of iterations; we develop this in \cref{sec:mc} (\cref{prop:
 We solve \cref{eq:nlf} by damped chord-Newton on the frozen-linearization Jacobian $J$, delegating each
 linearized solve to a near-linear Laplacian engine and globalizing with the convex Beckmann energy
 $E(\phi)=\sum_a\Psi_a\big((B^\top\phi)_a-\tau_a\big)-d^\top\phi$, $\Psi_a'=\rho_a$, exactly as in the NLF
-framework~\cite{nlf}. Two features of the directed problem require care.
+framework~\citep{nlf}. Two features of the directed problem require care.
 
 \paragraph{Ill-conditioning and the active set.}
 On inactive arcs $\rho'_a=0$, so $J$ is singular unless a floor is imposed; a tiny floor $\varepsilon\max_a\rho'_a$
@@ -217,7 +222,7 @@ iteration $\phi\leftarrow\phi+s\,\delta\phi$, $\delta\phi=-J_\delta^{-1}\nabla E
 across the level and $s$ from Armijo backtracking, produces a monotonically decreasing energy sequence that
 converges to that minimizer.
 \end{proposition}
-\begin{proof}
+\begin{proof}{\it Proof.}
 $\rho_{a,\delta}$ is nondecreasing (its derivative $\rho'_{a,\delta}=\sigma(e/\delta)/t'_a(f_a)>0$), so each
 $\Psi_{a,\delta}$ is convex and $E_\delta$ is convex with Hessian $J_\delta=B\,\mathrm{diag}(\rho'_\delta)\,B^\top$.
 Because the smoothed law has \emph{no dead zone}, $\rho'_{a,\delta}>0$ on \emph{every} arc, so $J_\delta$ is a
@@ -259,7 +264,7 @@ where $m_{c,a}=t_a(f_a)+f_a t'_a(f_a)$ is the marginal cost and $J=B\,\mathrm{di
 equilibrium Jacobian of \cref{prop:laplacian}. The gradient with respect to all $k$ tolls is thus obtained from a
 single additional solve with the operator $J$.
 \end{proposition}
-\begin{proof}
+\begin{proof}{\it Proof.}
 Write $g=B^\top\phi-\tau$, so $f=\rho(g)$ and $F(\tau)=\sum_a c_a(f_a)$ with $c_a(f)=t_a(f)f$, $c_a'=m_{c,a}$.
 Differentiating $F$ in $\tau_b$, $\partial_{\tau_b}F=\sum_a m_{c,a}\rho'_a(\partial_{\tau_b}g_a)$ with
 $\partial_{\tau_b}g_a=(B^\top\phi_{,b})_a-\delta_{ab}$, where $\phi_{,b}=\partial\phi^\star/\partial\tau_b$.
@@ -271,7 +276,7 @@ symmetry of $J$ gives $(Bw)^\top J^{-1}(Be_b)=\lambda^\top(Be_b)=(B^\top\lambda)
 $\partial_{\tau_b}F=\rho'_b\big((B^\top\lambda)_b-m_{c,b}\big)$, which is \cref{eq:adjoint}. The single solve
 $J\lambda=Bw$ yields the whole gradient. \qed
 \end{proof}
-This recovers the classical $k$-independence of equilibrium sensitivity~\cite{tobinfriesz1988,jp2007} but at
+This recovers the classical $k$-independence of equilibrium sensitivity~\citep{tobinfriesz1988,jp2007} but at
 near-linear rather than cubic cost. On the exact rectified law $J$ is singular off the active subgraph
 (inactive arcs have $\rho'=0$, isolating their nodes); \cref{eq:adjoint} is therefore solved on the active-arc
 node support (equivalently, with an infinitesimal conductance floor). The gradient is otherwise insensitive to
@@ -295,13 +300,14 @@ equilibrium solve by \cref{alg:solve}---yields a monotone design method (\cref{a
 \end{algorithm}
 
 \section{Numerical results}\label{sec:results}
-We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is approximate
-Cholesky~\cite{kyngsachdeva2016} by default; LAMG$+$~\cite{lamgplus} is interchangeable.
+We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is
+LAMG$+$~\citep{lamgplus} by default; approximate Cholesky~\citep{kyngsachdeva2016} is interchangeable (the two
+fit the same $m^{1.11}$ scaling; \cref{tab:scaling}).
 
 \paragraph{Correctness of the equilibrium.}
 On a congested Sioux Falls instance ($29$ active arcs, flow split across paths) \cref{alg:solve} matches an
 independent Frank--Wolfe assignment to a relative flow difference of $4$--$9\times10^{-11}$ across origin--
-destination pairs, i.e.\ to Frank--Wolfe's own accuracy. The number of approximate-Cholesky setups is $10$--$25$
+destination pairs, i.e.\ to Frank--Wolfe's own accuracy. The number of inner-engine setups is $10$--$25$
 per solve, set by the fixed number of $\delta$-levels and independent of graph size.
 
 \paragraph{Correctness of the adjoint.}
@@ -326,29 +332,34 @@ We use loose tolerances at intermediate continuation levels---a few Newton steps
 at the final level and the polish (the standard nested-iteration principle: continuation waypoints need only
 warm-start the next level). This cuts the Newton-step count with no change to the final solution, and keeps the
 algebraic-multigrid setups bounded (one per $\delta$-level) and independent of size. On size-scaled irregular
-(poorly-separable) congested networks the equilibrium wall-clock then scales near-linearly, $t\propto m^{1.23}$,
-while the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto
-m^{1.38}$ (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization
-(UMFPACK with COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear solver overtakes the direct one at $m\approx
-2\times10^{4}$ edges ($n\approx2\times10^3$), beyond which it is faster with a slowly widening margin---about
-$1.6\times$ at $m=1.6\times10^5$ ($110$ vs.\ $176$~s)---and it reaches $m=6.4\times10^5$ in $909$~s, where the
-direct factorization is infeasible: on our workstation it already exhausts memory at $m=3.2\times10^5$, the
-random-graph fill-in exceeding RAM (\cref{tab:scaling}). Below the crossover the constant favors the direct
-solver. The wall-clock gap between the two exponents is real but modest at feasible sizes ($\sim\!1.6\times$);
-the sharper practical separation is that direct factorization hits a memory wall the near-linear solver does
-not. We claim a genuine near-linear-versus-superlinear crossover on this graph class, not a large-factor
-speedup.
+(poorly-separable) congested networks the equilibrium wall-clock then scales near-linearly, $t\propto m^{1.11}$
+with either near-linear engine (the default LAMG$+$ and approximate Cholesky fit the \emph{same} exponent), while
+the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
+(\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
+COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear
+solver overtakes the direct one at $m\approx2\times10^{4}$ edges ($n\approx2\times10^3$), beyond which it is faster
+with a widening margin---about $1.6\times$ at $m=1.6\times10^5$ ($99$ vs.\ $161$~s)---and it reaches
+$m=6.4\times10^5$ in ${\approx}530$~s, where the direct factorization is infeasible: on our workstation it already
+exhausts memory at $m=3.2\times10^5$, the random-graph fill-in exceeding RAM (\cref{tab:scaling}). Below the
+crossover the constant favors the direct solver. The wall-clock gap is real but modest at feasible sizes; the
+sharper practical separation is that direct factorization hits a memory wall the near-linear solver does not. We
+claim a genuine near-linear-versus-superlinear crossover on this graph class, not a large-factor speedup.
 The near-linear exponent is inherited from the inner solve, not the outer iteration: across these sizes the
-number of chord-Newton steps ($\approx\!625$) and AMG setups ($\approx\!14$) are both constant
-(size-independent), so the $m^{1.23}$ wall-clock reflects the empirical scaling of a single approximate-Cholesky
-solve (near-linear, $m\,\mathrm{polylog}\,m$ in theory, $\approx m^{1.2}$ in practice on these graphs) rather
-than any growth in the iteration count. Loose intermediate tolerances realize this: solving every level tightly
+number of chord-Newton steps ($\approx\!625$) and inner-engine setups ($\approx\!14$) are both constant
+(size-independent), and the per-step Jacobian assembly is itself linear ($t\propto m^{1.02}$), so the wall-clock
+exponent reflects the empirical scaling of a single \emph{near-linear inner solve}---$m^{1.11}$ for both LAMG$+$
+and approximate Cholesky ($m\,\mathrm{polylog}\,m$ in theory, the finite-range exponent inflated above $1$ by
+memory locality)---rather than any growth in the iteration count. The two engines are interchangeable, tracking
+the same $m^{1.11}$ curve within a few percent at every size; LAMG$+$ is the default for its \emph{reproducible}
+multigrid scaling---approximate Cholesky's randomized elimination showed larger run-to-run variance at the largest
+size ($m=6.4\times10^5$: $548$--$856$~s across our clean runs, against LAMG$+$'s stable $526$--$533$~s)---and for
+its cleaner theoretical near-linear guarantee. Loose intermediate tolerances realize this: solving every level tightly
 instead multiplies the Newton-step count and steepens the wall-clock, without changing the final solution
 (\cref{sec:results}).
 
 We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection---Internet
 autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
-(\cref{tab:corpus}). The AMG setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
+(\cref{tab:corpus}; timed with approximate Cholesky, the interchangeable engine, at these sub-crossover sizes). The AMG setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
 the algorithm is size-optimal on real graphs. The head-to-head against the fair direct baseline is genuinely
 instance-dependent at these accessible sizes ($n\le2.6\times10^4$): approximate Cholesky is $1.5$--$1.6\times$
 faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
@@ -378,24 +389,24 @@ graph & $n$ & $m$ & approx.\ Chol. & direct & setups\\\midrule
 \end{table}
 
 \begin{table}[t]\centering
-\caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs):
-near-linear (approximate Cholesky, loose-intermediate continuation) vs.\ the fair frozen-per-level direct
-factorization. Ratio $=t_{\mathrm{approxChol}}/t_{\mathrm{direct}}$ (bold${}<1$: near-linear faster).
-Least-squares fits over the feasible rows: $t_{\mathrm{approxChol}}\propto m^{1.23}$, $t_{\mathrm{direct}}\propto
-m^{1.38}$, empirical crossover $m\approx2\times10^4$ (fitted lines meet at ${\approx}7\times10^3$). \emph{OOM}:
-direct factorization exhausts memory at
-$m\ge3.2\times10^5$ on our workstation (random-graph fill-in), where the near-linear solver still runs. Single
-run; per-cell wall-clock varies run to run (see \cref{tab:corpus}).}
+\caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
+clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) and approximate Cholesky
+(interchangeable)---vs.\ the fair frozen-per-level direct factorization. LAMG$+$ and approximate Cholesky fit the
+\emph{same} exponent, $m^{1.11}$, and track within a few percent; direct scales as $m^{1.36}$ and is overtaken
+near $m\approx1.5\times10^4$. \emph{OOM}: direct factorization exhausts memory at $m\ge3.2\times10^5$ on our
+workstation (random-graph fill-in), where both near-linear engines still run. Approximate Cholesky's randomized
+elimination gives it larger run-to-run variance at the largest size ($548$--$856$~s across runs, vs.\ LAMG$+$'s
+stable ${\approx}530$~s)---hence LAMG$+$ is the default.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
-$n$ & $m$ & approx.\ Cholesky & direct & ratio\\\midrule
-$1{,}000$  & $9{,}964$   & $4.62$   & $4.89$   & $\mathbf{0.95}$\\
-$2{,}000$  & $19{,}946$  & $11.18$  & $11.05$  & $1.01$\\
-$4{,}000$  & $39{,}952$  & $26.06$  & $29.19$  & $\mathbf{0.89}$\\
-$8{,}000$  & $79{,}936$  & $54.19$  & $120.51$ & $\mathbf{0.45}$\\
-$16{,}000$ & $159{,}954$ & $109.74$ & $175.85$ & $\mathbf{0.62}$\\
-$32{,}000$ & $319{,}952$ & $298.96$ & \emph{OOM} & ---\\
-$64{,}000$ & $639{,}950$ & $909.38$ & \emph{OOM} & ---\\\bottomrule
+$n$ & $m$ & LAMG$+$ & approx.\ Cholesky & direct\\\midrule
+$1{,}000$  & $9{,}964$   & $4.90$   & $4.93$   & $4.55$\\
+$2{,}000$  & $19{,}946$  & $11.01$  & $12.88$  & $10.58$\\
+$4{,}000$  & $39{,}952$  & $22.54$  & $20.46$  & $26.81$\\
+$8{,}000$  & $79{,}936$  & $52.95$  & $48.24$  & $107.51$\\
+$16{,}000$ & $159{,}954$ & $98.65$  & $102.49$ & $160.70$\\
+$32{,}000$ & $319{,}952$ & $233.19$ & $229.68$ & \emph{OOM}\\
+$64{,}000$ & $639{,}950$ & $526.03$ & $547.68$ & \emph{OOM}\\\bottomrule
 \end{tabular}
 \end{table}
 Bilevel toll design (\cref{alg:design}) therefore inherits a near-linear per-step cost on large irregular
@@ -404,12 +415,13 @@ near-planar road networks the crossover does not occur at practical sizes---nest
 there---which is why we frame the advantage on the communication-network regime.
 
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
-\caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: near-linear
-(approximate Cholesky, loose-intermediate continuation) vs.\ superlinear (direct factorization), crossing near
-$m\approx2\times10^4$; least-squares fits $m^{1.23}$ and $m^{1.38}$.}\label{fig:scaling}\end{figure}
+\caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: the two near-linear
+engines---LAMG$+$ (default) and approximate Cholesky, both fitting $m^{1.11}$---vs.\ superlinear direct
+factorization ($m^{1.36}$), the near-linear engines crossing the direct baseline near
+$m\approx1.5\times10^4$.}\label{fig:scaling}\end{figure}
 
 \paragraph{Comparison with differentiable-bilevel (first-order) solvers.}
-The learning-based approach to Stackelberg congestion design~\cite{li2022,goyal2023} treats the lower-level
+The learning-based approach to Stackelberg congestion design~\citep{li2022,goyal2023} treats the lower-level
 equilibrium as a differentiable layer: it is solved by a first-order scheme (unrolled imitative-logit dynamics;
 entropic mirror descent) and differentiated by unrolling or implicit differentiation. Their released code is
 toy-scale and does not run on the $10^4$--$10^5$-node irregular graphs here, so we reproduce the defining
@@ -447,27 +459,21 @@ instance & $n$ & $m$ & ours (s) & FISTA (s) & FISTA relres\\\midrule
 \end{table}
 
 \paragraph{Reproducibility.}
-All code, unit tests, and reproduction drivers are available at \url{https://github.com/orenlivne/dnlf}.
-\texttt{examples/reproduce.jl} regenerates the Sioux Falls correctness, adjoint, and design numbers of this
-section with timing; \texttt{scripts/scaling\_synthetic.jl} regenerates the size-scaled crossover
-(\cref{tab:scaling}, \cref{fig:scaling}) and its fitted exponents; \texttt{scripts/scaling.jl} regenerates the
-real-corpus table (\cref{tab:corpus}) over the public SuiteSparse/SNAP graph collection; both compare against
-the fair frozen-per-level direct baseline. \texttt{scripts/baseline\_firstorder.jl} regenerates the
-first-order head-to-head (\cref{tab:baseline}); \texttt{scripts/scaling\_mc.jl} regenerates the multicommodity
-iteration table (\cref{tab:mc}), \texttt{scripts/design\_study\_mc.jl} the multi-instance design study
-(\cref{tab:mcdesign}), \texttt{scripts/design\_study\_tntp.jl} the real-network validation on the published
-Sioux Falls and Anaheim OD matrices (\cref{tab:mcreal}), and \texttt{examples/reproduce\_mc.jl} a single
-multicommodity design instance (\cref{sec:mc}); and \texttt{test/runtests.jl} verifies every algorithm
-component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc} and the TNTP OD-matrix loader. The
-test networks are the TNTP Sioux Falls and Anaheim instances with their published OD matrices (shipped with the
-code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida}, \texttt{Oregon-1},
-\texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
+All code, unit tests, and reproduction drivers are available at \url{https://github.com/orenlivne/dnlf}; the
+repository regenerates every table and figure in this paper---the crossover (\cref{tab:scaling},
+\cref{fig:scaling}), the real-corpus table (\cref{tab:corpus}), the first-order head-to-head
+(\cref{tab:baseline}), and the multicommodity tables (\cref{tab:mc,tab:mcdesign,tab:mcreal})---and unit-tests
+every algorithm component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc} and the OD-matrix
+loader. All timings reported in this paper were measured on an Apple M5 Pro (18 cores, 48\,GB RAM) under
+macOS~26.5 and Julia~1.12. The test networks are the TNTP Sioux Falls and Anaheim instances with their published
+OD matrices (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
+\texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
 
 \section{Multicommodity logit stochastic user equilibrium and design}\label{sec:mc}
 The single-commodity solver of \cref{sec:solver} routes a general balanced demand as one fungible flow.
 Realistic congestion pricing is inherently \emph{multicommodity}: each origin--destination (OD) pair routes its
 own flow over the shared congested network, and tolls are designed against that coupled equilibrium. We extend
-the framework to the multicommodity \emph{logit stochastic user equilibrium} (SUE)~\cite{fisk1980,daganzo1977},
+the framework to the multicommodity \emph{logit stochastic user equilibrium} (SUE)~\citep{fisk1980,daganzo1977},
 in which route choice has a dispersion $\gamma>0$---a calibrated behavioural parameter, not a numerical
 smoothing. The same near-linear machinery carries over: the multicommodity Newton system is a coupled
 block-Laplacian that a distribution-matrix block preconditioner solves in a handful of iterations, and the design
@@ -485,18 +491,17 @@ $f^k_a=\exp\!\bigl((g^k_a-t_a(f_a))/\gamma\bigr)$ with $g^k_a=(B^\top\phi^k)_a$:
 whose total $f_a$ solves a monotone scalar fixed point $\log f_a=\mathrm{logsumexp}_k(g^k_a/\gamma)-t_a(f_a)/\gamma$.
 As $\gamma\to0$ the model tends to deterministic user equilibrium; we solve at a fixed, calibrated $\gamma$.
 
-\begin{proposition}[the multicommodity Newton system is a coupled block Laplacian]\label{prop:mc}
-At a logit equilibrium the reduced Newton Jacobian in the stacked potentials $\Phi=[\phi^1;\dots;\phi^K]$ is
+\begin{proposition}[multicommodity Newton system: a coupled block Laplacian]\label{prop:mc}
+At a logit equilibrium the reduced Newton Jacobian in the stacked potentials $\Phi$ is
 \begin{equation}\label{eq:mcjac}
   J=\underbrace{\tfrac1\gamma\,\mathrm{blkdiag}_k\!\bigl(B\,\mathrm{diag}(f^k)\,B^\top\bigr)}_{K\ \text{per-commodity Laplacians}}
-   -\tfrac1{\gamma^2}\sum_a c_a\,(f_a f_a^\top)\otimes b_a b_a^\top,\qquad
-   c_a=\frac{t'_a}{1+t'_a f_a/\gamma},
+   -\tfrac1{\gamma^2}\sum_a c_a\,(f_a f_a^\top)\otimes b_a b_a^\top,
 \end{equation}
-where $b_a=Be_a$ and $f_a=(f^1_a,\dots,f^K_a)^\top$. Each diagonal block is a symmetric weighted graph Laplacian;
+where $\Phi=[\phi^1;\dots;\phi^K]$, $b_a=Be_a$, $f_a=(f^1_a,\dots,f^K_a)^\top$, and $c_a=t'_a/(1+t'_a f_a/\gamma)$. Each diagonal block is a symmetric weighted graph Laplacian;
 the coupling is symmetric positive semidefinite and rank one per arc. For $K=1$, \cref{eq:mcjac} reduces, as
 $\gamma\to0$, to the single-commodity active Laplacian $B\,\mathrm{diag}(1/t'_a)\,B^\top$ of \cref{prop:laplacian}.
 \end{proposition}
-\begin{proof}
+\begin{proof}{\it Proof.}
 The equilibrium is $R^k(\Phi)=-Bf^k(\Phi)-d^k=0$. Differentiating the logit map,
 $\mathrm{d}f^k_a=(f^k_a/\gamma)(\mathrm{d}g^k_a-t'_a\,\mathrm{d}f_a)$ and $\mathrm{d}f_a=\sum_l\mathrm{d}f^l_a$; solving
 the latter gives $\mathrm{d}f_a=(\gamma+t'_af_a)^{-1}\sum_l f^l_a\,\mathrm{d}g^l_a$. Substituting and using
@@ -509,8 +514,9 @@ $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$.
 
 \paragraph{Near-linear solve.}
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
-block diagonal---one near-linear approximate-Cholesky solve per commodity. The rank-one commodity coupling is
-exactly Brandt's \emph{distribution matrix}~\cite{brandt1984}: in the mean/deviation basis over commodities it
+block diagonal---one near-linear solve per commodity (approximate Cholesky here, interchangeable with the default
+LAMG$+$; on the small, concentrated per-commodity Laplacians the two are equivalent). The rank-one commodity coupling is
+exactly Brandt's \emph{distribution matrix}~\citep{brandt1984}: in the mean/deviation basis over commodities it
 decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
 their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
 grows only logarithmically in $K$, and is independent of graph size $n$ at the operating dispersion
@@ -525,10 +531,10 @@ blocks become high-contrast, is expensive, and that regime is entered only as on
 its deterministic ($\gamma\to0$) limit. That limit is a \emph{different} model---deterministic multicommodity
 user equilibrium, with non-unique commodity flows, for which Frank--Wolfe and related methods are already
 effective---not a regime our fixed-$\gamma$ solver must reach: fixed $\gamma$ is a calibrated route-choice
-dispersion~\cite{fisk1980,daganzo1977}, a complete behavioural model in its own right, so we solve the logit SUE
+dispersion~\citep{fisk1980,daganzo1977}, a complete behavioural model in its own right, so we solve the logit SUE
 at that $\gamma$ and do not pursue $\gamma\to0$. We nonetheless verified that a coupling-aware distribution-matrix
 preconditioner realized in flow space (the per-arc coupling inverted exactly by Sherman--Morrison, with an
-aggregate-congestion Laplacian on the mean commodity mode, as \cite{brandt1984} prescribes) converges
+aggregate-congestion Laplacian on the mean commodity mode, as \citet{brandt1984} prescribes) converges
 $\gamma$-boundedly where the reduced-potential-space version does not, but it does not improve on the block
 diagonal in the operating regime; the block diagonal is therefore retained. Fixed $\gamma$ is thus both the
 modelling choice (a calibrated route-choice dispersion) and the regime in which the block preconditioner is well
@@ -538,24 +544,26 @@ conditioned.
 Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity
 $\partial f^k_a/\partial\tau_a=-f^k_a c_a$. The same adjoint as \cref{sec:design} returns $\nabla_\tau\mathrm{TSTT}$
 for all tolls from a single block-preconditioned solve $J\lambda=\partial_\Phi\mathrm{TSTT}$. The adjoint matches
-central finite differences to under $10^{-3}$ (verified in \texttt{test/runtests.jl}), and on a multicommodity
+central finite differences to under $10^{-3}$ (verified by the released unit tests), and on a multicommodity
 instance projected-gradient tolling reduces TSTT with the tolls spread across the congested arcs, each
 equilibrium re-solve costing single-digit inner iterations---the bilevel iteration inheriting the near-linear
 per-step cost. Across a range of synthetic instances (varying $K$, $\gamma$,
 network size, and demand; \cref{tab:mcdesign}) the reduction is $1$--$2\%$ and the inner-iteration count stays
 single digit. On the two canonical TNTP road networks with their \emph{published} origin--destination matrices
 and BPR parameters---Sioux Falls ($n=24$, $m=76$, $K=24$ destination commodities) and Anaheim ($n=416$, $m=914$,
-$K=38$)---destination-bundled design reduces the real system travel time by $8$--$13\%$ (\cref{tab:mcreal}). Both
+$K=38$)---destination-bundled design reduces the real system travel time by $7.7$--$13.1\%$ (\cref{tab:mcreal}). Both
 networks are over-saturated at their full published demand (peak volume/capacity above $2.5$); the inner
-iteration count stays bounded and, consistent with the near-linear claim, does \emph{not} grow with size---Anaheim
-carries $27\times$ the degrees of freedom of Sioux Falls yet needs \emph{fewer} inner iterations, its larger arc
-set better conditioning the block preconditioner. A budget-constrained (sparse-toll) design is a natural extension.
+inner iteration count stays bounded and does not grow with size (consistent with the size-independence
+established on the synthetic family, \cref{tab:mc}): Anaheim carries $27\times$ the degrees of freedom of Sioux
+Falls yet needs \emph{fewer} inner iterations. What sets the count is not size but the per-arc commodity coupling
+the block-diagonal preconditioner omits, which is significant only where arcs approach the BPR saturation knee:
+tiny, dense Sioux Falls at its over-saturated published demand forces most carrying arcs there, whereas Anaheim
+spreads flow so typical arcs stay clear of it. A budget-constrained (sparse-toll) design is a natural extension.
 
 \begin{table}[t]\centering
 \caption{Multicommodity logit-SUE inner conjugate-gradient iterations (block-preconditioned) on irregular
 networks, $\gamma=0.1$. Left: vs.\ commodities $K$ ($n=1500$), single-OD and spread demands. Right: vs.\ graph
-size $n$ ($K=8$, spread). Single-digit to low double digit, $\log K$ growth, $n$-independent; regenerated by
-\texttt{scripts/scaling\_mc.jl}.}
+size $n$ ($K=8$, spread). Single-digit to low double digit, $\log K$ growth, $n$-independent.}
 \label{tab:mc}
 \begin{tabular}{rrr@{\qquad}rr}\toprule
 $K$ & single-OD & spread & $n$ (at $K{=}8$) & iters\\\midrule
@@ -571,7 +579,7 @@ $16$ & $12$ & $9$  &           &  \\\bottomrule
 \caption{Multicommodity toll design across instances (varying commodities $K$, dispersion $\gamma$, network
 size $n$, and per-commodity demand ``load''): TSTT reduction, inner conjugate-gradient iterations per
 equilibrium re-solve, and the fraction of arcs carrying a \emph{non-negligible} toll ($\tau>10^{-3}$ of the
-maximum). The inner count stays single digit throughout. Regenerated by \texttt{scripts/design\_study\_mc.jl}.}
+maximum). The inner count stays single digit throughout.}
 \label{tab:mcdesign}
 \begin{tabular}{rrrrrrr}\toprule
 $n$ & $K$ & $\gamma$ & load & TSTT red.\ & inner it.\ & arcs tolled\\\midrule
@@ -590,9 +598,9 @@ $1{,}600$ & $8$  & $0.10$ & $3{,}600$ & $1.2\%$ & $6$ & $43\%$\\\bottomrule
 \caption{Real-network validation: destination-bundled logit-SUE toll design on the two canonical TNTP road
 networks with their \emph{published} OD matrices and BPR parameters (one commodity per destination zone). Both
 are over-saturated at full demand (peak volume/capacity $>2.5$). Tolls spread across $53$--$74\%$ of arcs. The
-inner conjugate-gradient count at the final equilibrium solve is bounded and does not grow with size---Anaheim
-has $27\times$ the degrees of freedom yet needs fewer iterations. Regenerated by
-\texttt{scripts/design\_study\_tntp.jl}.}
+inner conjugate-gradient count at the final equilibrium solve is bounded ($12$--$38$); it is set by proximity
+to the BPR saturation knee (\cref{sec:mc}), not by network size---Anaheim has $27\times$ the degrees of freedom
+of Sioux Falls yet needs fewer iterations.}
 \label{tab:mcreal}
 \begin{tabular}{lrrrrrr}\toprule
 network & $n$ & $m$ & $K$ & $\gamma$ & TSTT red.\ & inner it.\\\midrule
@@ -605,26 +613,26 @@ Anaheim     & $416$ & $914$ & $38$ & $5$ & $\phantom{0}7.7\%$  & $12$\\\bottomru
 
 \section{Related work}\label{sec:related}
 \paragraph{Bilevel network design and sensitivity.}
-CNDP and second-best tolling are bilevel/MPEC problems, nonconvex and \emph{NP}-hard~\cite{gairing2017,hoefer2008};
-surveys~\cite{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods. Equilibrium sensitivity
-originates with Tobin and Friesz~\cite{tobinfriesz1988} and was sharpened by Qiu and Magnanti and by Patriksson
-and co-authors~\cite{jp2007}, who observed that the sensitivity problem is itself a linearized equilibrium solve.
+CNDP and second-best tolling are bilevel/MPEC problems, nonconvex and \emph{NP}-hard~\citep{gairing2017,hoefer2008};
+surveys~\citep{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods. Equilibrium sensitivity
+originates with \citet{tobinfriesz1988} and was sharpened by Qiu and Magnanti and by Patriksson
+and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itself a linearized equilibrium solve.
 Our adjoint \cref{eq:adjoint} is precisely that observation; the novelty here is not the $k$-independent gradient
 but the \emph{near-linear} operator that computes it and the forward solve. The same bilevel problem is studied
 in algorithmic game theory as optimal tolling and Stackelberg routing to reduce the price of anarchy of a
-congestion game~\cite{roughgarden2002,swamy2012,korilis1997}, and in communication networks as competitive /
-selfish routing~\cite{orda1993,larroca2013}; that literature focuses on existence, bounds, and mechanism design
+congestion game~\citep{roughgarden2002,swamy2012,korilis1997}, and in communication networks as competitive /
+selfish routing~\citep{orda1993,larroca2013}; that literature focuses on existence, bounds, and mechanism design
 rather than on a scalable solver for the induced equilibrium, which is our concern. Recent differentiable-bilevel
 methods
-\cite{li2022,goyal2023} break the cold-resolve-per-step pattern with warm-started, truncated first-order inner
+\citep{li2022,goyal2023} break the cold-resolve-per-step pattern with warm-started, truncated first-order inner
 loops and unrolled/implicit differentiation, but use no multigrid and are demonstrated only at Sioux
 Falls--Chicago-Sketch scale. Their defining component is a first-order inner equilibrium solve; we compare
 head-to-head against a strong instance of it (FISTA on the same convex Beckmann energy) in \cref{sec:results}.
 
 \paragraph{Near-linear Laplacian solvers and nonlinear flow.}
-Nearly-linear-time solvers for symmetric diagonally dominant systems~\cite{kyngsachdeva2016,lamgplus} underpin
+Nearly-linear-time solvers for symmetric diagonally dominant systems~\citep{kyngsachdeva2016,lamgplus} underpin
 web-scale spectral graph computation but have not, to our knowledge, been used as the inner solve of a bilevel
-traffic-design loop. The nonlinear Laplacian flow framework~\cite{nlf} unifies max-flow, congestion, and
+traffic-design loop. The nonlinear Laplacian flow framework~\citep{nlf} unifies max-flow, congestion, and
 min-delay routing as one monotone edge-law equation and supplies the chord-Newton machinery we build on;
 the present work extends it from the undirected relaxation to the directed (rectified) equilibrium and to the
 design (adjoint) problem.
@@ -656,72 +664,71 @@ is the main open algorithmic problem. (iv) \textbf{Planarity.} Road networks are
 solver ties nested-dissection direct methods; the decisive advantage of the near-linear inner solve is on
 memory at very large scale and on non-planar (e.g.\ communication or logistics) design instances. (v)
 \textbf{Saturating laws and folds.} A capacity-saturating (min-delay) law reintroduces a genuine turning-point
-fold, where the continuation/deflation machinery of~\cite{nlf} applies; the design problem through the fold is
+fold, where the continuation/deflation machinery of~\citet{nlf} applies; the design problem through the fold is
 future work.
 
-\section*{Acknowledgments}
-This work builds on the NLF and LAMG$+$ solvers; the author thanks the developers of Laplacians.jl for the
-approximate-Cholesky engine.
+\ACKNOWLEDGMENT{This work builds on the NLF and LAMG$+$ solvers; the author thanks the developers of the
+Laplacians.jl package for the approximate-Cholesky engine.}
 
-\begin{thebibliography}{99}
-\bibitem{tobinfriesz1988} R.~L.~Tobin and T.~L.~Friesz, \emph{Sensitivity analysis for equilibrium network flow},
+\begin{thebibliography}{}
+\bibitem[Tobin and Friesz(1988)]{tobinfriesz1988} R.~L.~Tobin and T.~L.~Friesz, \emph{Sensitivity analysis for equilibrium network flow},
 Transportation Science, 22 (1988), pp.~242--250.
-\bibitem{jp2007} M.~Josefsson and M.~Patriksson, \emph{Sensitivity analysis of separable traffic equilibria with
+\bibitem[Josefsson and Patriksson(2007)]{jp2007} M.~Josefsson and M.~Patriksson, \emph{Sensitivity analysis of separable traffic equilibria with
 application to bilevel optimization in network design}, Transportation Research Part B, 41 (2007), pp.~4--31.
-\bibitem{chiou2005} S.-W.~Chiou, \emph{Bilevel programming for the continuous transport network design problem},
+\bibitem[Chiou(2005)]{chiou2005} S.-W.~Chiou, \emph{Bilevel programming for the continuous transport network design problem},
 Transportation Research Part B, 39 (2005), pp.~361--383.
-\bibitem{gairing2017} M.~Gairing, T.~Harks, and M.~Klimm, \emph{Complexity and approximation of the continuous
+\bibitem[Gairing et al.(2017)]{gairing2017} M.~Gairing, T.~Harks, and M.~Klimm, \emph{Complexity and approximation of the continuous
 network design problem}, SIAM Journal on Optimization, 27 (2017), pp.~1554--1582.
-\bibitem{hoefer2008} M.~Hoefer, L.~Olbrich, and A.~Skopalik, \emph{Taxing subnetworks}, in Proc.\ WINE, 2008,
+\bibitem[Hoefer et al.(2008)]{hoefer2008} M.~Hoefer, L.~Olbrich, and A.~Skopalik, \emph{Taxing subnetworks}, in Proc.\ WINE, 2008,
 pp.~286--294.
-\bibitem{farahani2013} R.~Z.~Farahani, E.~Miandoabchi, W.~Y.~Szeto, and H.~Rashidi, \emph{A review of urban
+\bibitem[Farahani et al.(2013)]{farahani2013} R.~Z.~Farahani, E.~Miandoabchi, W.~Y.~Szeto, and H.~Rashidi, \emph{A review of urban
 transportation network design problems}, European Journal of Operational Research, 229 (2013), pp.~281--302.
-\bibitem{bargera2002} H.~Bar-Gera, \emph{Origin-based algorithm for the traffic assignment problem},
+\bibitem[Bar-Gera(2002)]{bargera2002} H.~Bar-Gera, \emph{Origin-based algorithm for the traffic assignment problem},
 Transportation Science, 36 (2002), pp.~398--417.
-\bibitem{dial2006} R.~B.~Dial, \emph{A path-based user-equilibrium traffic assignment algorithm that obviates
+\bibitem[Dial(2006)]{dial2006} R.~B.~Dial, \emph{A path-based user-equilibrium traffic assignment algorithm that obviates
 path storage and enumeration}, Transportation Research Part B, 40 (2006), pp.~917--936.
-\bibitem{li2022} P.~Li et al., \emph{Differentiable bilevel programming for Stackelberg congestion games},
+\bibitem[Li et al.(2022)]{li2022} P.~Li et al., \emph{Differentiable bilevel programming for Stackelberg congestion games},
 arXiv:2209.07618, 2022.
-\bibitem{goyal2023} A.~Goyal and A.~Lamperski, \emph{An algorithm for bilevel optimization with traffic
+\bibitem[Goyal and Lamperski(2023)]{goyal2023} A.~Goyal and A.~Lamperski, \emph{An algorithm for bilevel optimization with traffic
 equilibrium constraints}, arXiv:2306.14235, 2023.
-\bibitem{kyngsachdeva2016} R.~Kyng and S.~Sachdeva, \emph{Approximate Gaussian elimination for Laplacians---fast,
+\bibitem[Kyng and Sachdeva(2016)]{kyngsachdeva2016} R.~Kyng and S.~Sachdeva, \emph{Approximate Gaussian elimination for Laplacians---fast,
 sparse, and simple}, in Proc.\ FOCS, 2016, pp.~573--582.
-\bibitem{lamgplus} O.~E.~Livne, \emph{LAMG$+$: a robust lean algebraic multigrid solver for graph Laplacians},
+\bibitem[Livne(2026a)]{lamgplus} O.~E.~Livne, \emph{LAMG$+$: a robust lean algebraic multigrid solver for graph Laplacians},
 arXiv:2606.24791; accepted, SIAM Journal on Scientific Computing.
-\bibitem{nlf} O.~E.~Livne, \emph{NLF: a resistor-network framework and linear-time solver for convex network-flow
+\bibitem[Livne(2026b)]{nlf} O.~E.~Livne, \emph{NLF: a resistor-network framework and linear-time solver for convex network-flow
 equilibria}, SIAM Journal on Scientific Computing (under review), 2026.
-\bibitem{fisk1980} C.~Fisk, \emph{Some developments in equilibrium traffic assignment}, Transportation Research
+\bibitem[Fisk(1980)]{fisk1980} C.~Fisk, \emph{Some developments in equilibrium traffic assignment}, Transportation Research
 Part B, 14 (1980), pp.~243--255.
-\bibitem{daganzo1977} C.~F.~Daganzo and Y.~Sheffi, \emph{On stochastic models of traffic assignment},
+\bibitem[Daganzo and Sheffi(1977)]{daganzo1977} C.~F.~Daganzo and Y.~Sheffi, \emph{On stochastic models of traffic assignment},
 Transportation Science, 11 (1977), pp.~253--274.
-\bibitem{brandt1984} A.~Brandt, \emph{Multigrid techniques: 1984 guide with applications to fluid dynamics},
+\bibitem[Brandt(1984)]{brandt1984} A.~Brandt, \emph{Multigrid techniques: 1984 guide with applications to fluid dynamics},
 GMD-Studien Nr.~85, Gesellschaft f\"ur Mathematik und Datenverarbeitung, 1984 (distributive/distribution-matrix
 relaxation, \S3.4).
-\bibitem{amos2017} B.~Amos and J.~Z.~Kolter, \emph{OptNet: differentiable optimization as a layer in neural
+\bibitem[Amos and Kolter(2017)]{amos2017} B.~Amos and J.~Z.~Kolter, \emph{OptNet: differentiable optimization as a layer in neural
 networks}, in Proc.\ ICML, 2017, pp.~136--145.
-\bibitem{blondel2022} M.~Blondel et al., \emph{Efficient and modular implicit differentiation}, in Proc.\
+\bibitem[Blondel et al.(2022)]{blondel2022} M.~Blondel et al., \emph{Efficient and modular implicit differentiation}, in Proc.\
 NeurIPS, 2022.
-\bibitem{rosenthal1973} R.~W.~Rosenthal, \emph{A class of games possessing pure-strategy Nash equilibria},
+\bibitem[Rosenthal(1973)]{rosenthal1973} R.~W.~Rosenthal, \emph{A class of games possessing pure-strategy Nash equilibria},
 International Journal of Game Theory, 2 (1973), pp.~65--67.
-\bibitem{roughgarden2002} T.~Roughgarden and \'E.~Tardos, \emph{How bad is selfish routing?}, Journal of the
+\bibitem[Roughgarden and Tardos(2002)]{roughgarden2002} T.~Roughgarden and \'E.~Tardos, \emph{How bad is selfish routing?}, Journal of the
 ACM, 49 (2002), pp.~236--259.
-\bibitem{swamy2012} C.~Swamy, \emph{The effectiveness of Stackelberg strategies and tolls for network congestion
+\bibitem[Swamy(2012)]{swamy2012} C.~Swamy, \emph{The effectiveness of Stackelberg strategies and tolls for network congestion
 games}, ACM Transactions on Algorithms, 8 (2012), art.~36.
-\bibitem{korilis1997} Y.~A.~Korilis, A.~A.~Lazar, and A.~Orda, \emph{Achieving network optima using Stackelberg
+\bibitem[Korilis et al.(1997)]{korilis1997} Y.~A.~Korilis, A.~A.~Lazar, and A.~Orda, \emph{Achieving network optima using Stackelberg
 routing strategies}, IEEE/ACM Transactions on Networking, 5 (1997), pp.~161--173.
-\bibitem{orda1993} A.~Orda, R.~Rom, and N.~Shimkin, \emph{Competitive routing in multiuser communication
+\bibitem[Orda et al.(1993)]{orda1993} A.~Orda, R.~Rom, and N.~Shimkin, \emph{Competitive routing in multiuser communication
 networks}, IEEE/ACM Transactions on Networking, 1 (1993), pp.~510--521.
-\bibitem{larroca2013} F.~Larroca and J.-L.~Rougier, \emph{Minimum-delay load-balancing through non-parametric
+\bibitem[Larroca and Rougier(2013)]{larroca2013} F.~Larroca and J.-L.~Rougier, \emph{Minimum-delay load-balancing through non-parametric
 regression and traffic-engineering}, Computer Networks, 57 (2013), pp.~2716--2728.
-\bibitem{qiu2003} L.~Qiu, Y.~R.~Yang, Y.~Zhang, and S.~Shenker, \emph{On selfish routing in Internet-like
+\bibitem[Qiu et al.(2003)]{qiu2003} L.~Qiu, Y.~R.~Yang, Y.~Zhang, and S.~Shenker, \emph{On selfish routing in Internet-like
 environments}, in Proc.\ ACM SIGCOMM, 2003, pp.~151--162.
-\bibitem{faloutsos1999} M.~Faloutsos, P.~Faloutsos, and C.~Faloutsos, \emph{On power-law relationships of the
+\bibitem[Faloutsos et al.(1999)]{faloutsos1999} M.~Faloutsos, P.~Faloutsos, and C.~Faloutsos, \emph{On power-law relationships of the
 Internet topology}, in Proc.\ ACM SIGCOMM, 1999, pp.~251--262.
-\bibitem{fortz2000} B.~Fortz and M.~Thorup, \emph{Internet traffic engineering by optimizing OSPF weights}, in
+\bibitem[Fortz and Thorup(2000)]{fortz2000} B.~Fortz and M.~Thorup, \emph{Internet traffic engineering by optimizing OSPF weights}, in
 Proc.\ IEEE INFOCOM, 2000, pp.~519--528.
-\bibitem{cole2003} R.~Cole, Y.~Dodis, and T.~Roughgarden, \emph{Pricing network edges for heterogeneous selfish
+\bibitem[Cole et al.(2003)]{cole2003} R.~Cole, Y.~Dodis, and T.~Roughgarden, \emph{Pricing network edges for heterogeneous selfish
 users}, in Proc.\ ACM STOC, 2003, pp.~521--530.
-\bibitem{leskovec2007} J.~Leskovec, J.~Kleinberg, and C.~Faloutsos, \emph{Graph evolution: densification and
+\bibitem[Leskovec et al.(2007)]{leskovec2007} J.~Leskovec, J.~Kleinberg, and C.~Faloutsos, \emph{Graph evolution: densification and
 shrinking diameters}, ACM Trans.\ Knowledge Discovery from Data, 1 (2007), art.~2.
 \end{thebibliography}
 \end{document}

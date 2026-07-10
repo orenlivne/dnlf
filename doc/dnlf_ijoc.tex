@@ -229,7 +229,7 @@ step; the standard damped modified-Newton argument for a fixed positive-definite
 to the unique minimizer. \qed
 \end{proof}
 \Cref{prop:conv} covers each smoothed level; the homotopy is a continuation of these strictly-convex problems
-toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy.
+toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy. Each intermediate level ($\ell<L$) is solved only to a loose tolerance $\varepsilon_{\mathrm{int}}$: by the nested-iteration principle its solution need only warm-start the next level, so $\varepsilon_{\mathrm{int}}$ matches the perturbation of one continuation step---a fixed relative residual for our geometric $\delta$-schedule ($\varepsilon_{\mathrm{int}}\approx3\times10^{-2}$, a handful of chord-Newton steps). Over-solving a level one is about to leave is wasted, while under-solving is absorbed by the next level and the polish, so the total work is insensitive to $\varepsilon_{\mathrm{int}}$: across $\varepsilon_{\mathrm{int}}\in[3\times10^{-3},3\times10^{-1}]$ the chord-Newton-step count varies within $1.3\times$ and the AMG-setup count stays in $[13,17]$, with the looser tolerances if anything cheaper. Only the final level ($\ell=L$) and the polish---where the active set switches on and the path stiffens---are solved to the tight $\varepsilon$.
 
 \begin{algorithm}
 \caption{Near-linear directed-UE solve (cold start). Tolerances: $\varepsilon_{\mathrm{int}}=3\times10^{-2}$ at intermediate levels (at most $6$ chord-Newton steps), $\varepsilon=10^{-9}$ at the final level and polish ($10^{-3}$ suffices for design, \cref{sec:results}).}\label{alg:solve}

@@ -199,10 +199,9 @@ $\delta\to0$; the resulting smoothed law $\rho_{a,\delta}$ has $\rho'_{a,\delta}
 \emph{everywhere} (where $\sigma$ is the logistic function), so $J$ is a full, uniformly well-conditioned
 Laplacian with no dead zone. We continue $\delta$ geometrically from $\delta_0=\tfrac12\bar t^0$ down to a small
 value, building one AMG hierarchy at the start of each $\delta$-level and freezing it within the level;
-the smoothed conductances vary slowly within a level, so the frozen hierarchy is valid there. A final
+the smoothed conductances vary slowly within a level, so the frozen hierarchy is valid there. Each $\delta$-level need only be solved approximately; a final
 polish with the exact law \cref{eq:rho}, warm-started from the smoothed solution, recovers the exact
-rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the number
-of AMG setups per solve is bounded independently of the graph size $m$.
+rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the total number of AMG setups is bounded independently of graph size $m$.
 
 We give a self-contained convergence guarantee for the
 smoothed level solve, so the paper does not depend on external convergence theory.
@@ -233,14 +232,15 @@ to the unique minimizer. \qed
 toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy.
 
 \begin{algorithm}
-\caption{Near-linear directed-UE solve (cold start)}\label{alg:solve}
+\caption{Near-linear directed-UE solve (cold start). Tolerances: $\varepsilon_{\mathrm{int}}=3\times10^{-2}$ at intermediate levels (at most $6$ chord-Newton steps), $\varepsilon=10^{-9}$ at the final level and polish ($10^{-3}$ suffices for design, \cref{sec:results}).}\label{alg:solve}
 \begin{algorithmic}[1]
 \State $\phi\gets 0$;\quad choose geometric schedule $\delta_0>\dots>\delta_L$
 \For{$\ell=0,\dots,L$} \Comment{smoothing homotopy: one hierarchy build per level}
   \State build AMG hierarchy for $J_\delta$ at $\delta=\delta_\ell$; run chord-Newton on
-  $B\rho_{\delta_\ell}(B^\top\phi-\tau)=d$ to tolerance, hierarchy \textbf{frozen} within the level
+  $B\rho_{\delta_\ell}(B^\top\phi-\tau)=d$ to the loose tolerance $\varepsilon_{\mathrm{int}}$ if $\ell<L$
+  (a few steps, warm-starting the next level), else to the tight $\varepsilon$; hierarchy \textbf{frozen} within the level
 \EndFor
-\State \textbf{polish:} chord-Newton on the exact law $B\rho(B^\top\phi-\tau)=d$, warm-started from $\phi$,
+\State \textbf{polish:} chord-Newton on the exact law $B\rho(B^\top\phi-\tau)=d$ to the tight tolerance $\varepsilon$, warm-started from $\phi$,
 rebuilding the hierarchy only when the residual stalls
 \State \Return $\phi$, arc flows $f_a=\rho_a((B^\top\phi)_a-\tau_a)$
 \end{algorithmic}

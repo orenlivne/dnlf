@@ -74,38 +74,37 @@ objective $F$, most commonly total system travel time (TSTT), subject to the ind
 \qquad\text{s.t.}\qquad f^\star(\tau)\ \text{solves the UE at design }\tau .
 \end{equation}
 This bilevel program is the standard model for congestion pricing, capacity planning, and demand estimation.
-It is nonconvex and nondifferentiable, and \emph{NP}-hard even with affine latencies~\citep{gairing2017}; second-best
+It is nonconvex, nondifferentiable, and \emph{NP}-hard even with affine latencies~\citep{gairing2017}; second-best
 tolling is \emph{NP}-hard as well~\citep{hoefer2008}. Practical methods therefore seek a local (KKT) stationary
 point, and essentially all of them---sensitivity-analysis-based (SAB) descent~\citep{tobinfriesz1988,jp2007,chiou2005},
-mathematical programs with equilibrium constraints, and metaheuristics---share one structure: an \emph{outer}
-loop in which each iteration solves the lower-level equilibrium and then a sensitivity (equilibrium derivative).
+mathematical programs with equilibrium constraints, and metaheuristics---run an \emph{outer}
+loop where each iteration solves the lower-level equilibrium and then a sensitivity (equilibrium derivative).
 
-\paragraph{The cost, and where it lives.}
+\subsection{Computational cost, and where it lives}
 The design gradient itself is cheap in the number of design variables: since \citet{tobinfriesz1988}, $\nabla_\tau F$ is obtained by factorizing the equilibrium Jacobian \emph{once}
 and back-substituting one right-hand side per design variable, so its cost is independent of $k$ (an adjoint /
-implicit-function computation~\citep{jp2007,amos2017,blondel2022}). The bottleneck is that this Jacobian
-factorization---and the lower-level solve that precedes it---is a \emph{direct} sparse factorization whose cost
-is superlinear (cubic in the active-path/subnetwork size) or a slowly converging Frank--Wolfe assignment. This
+implicit-function computation~\citep{jp2007,amos2017,blondel2022}). The bottleneck is that this
+factorization and the lower-level solve that precedes it are direct sparse factorizations whose cost is cubic in the active-path/subnetwork size, or a slowly converging Frank--Wolfe assignment. This
 is why exact design methods in the literature stall near Sioux Falls scale ($76$ links) while origin-based
-forward assignment routinely reaches $4\times10^4$--$7.5\times10^4$ links~\citep{bargera2002,dial2006}. The gap
-between forward and design scalability is one to two orders of magnitude, and it is a \emph{linear-algebra} gap.
+forward assignment routinely reaches $40,000$--$75,000$ links~\citep{bargera2002,dial2006}. The gap
+between forward and design scalability is one to two orders of magnitude, and is purely a linear-algebra gap.
 
-\paragraph{Contribution.}
-We close that gap by replacing the superlinear inner factorization with a near-linear one, for both the forward
+\subsection{Contribution}
+We close that gap by replacing the superlinear inner factorization with a near-linear one for both the forward
 equilibrium and the adjoint, without compromising accuracy. Our contributions are:
 \begin{enumerate}[leftmargin=*]
-\item \textbf{A Laplacian structure for the directed equilibrium (\cref{sec:formulation}).} We write the
+\item \textbf{A Laplacian formulation of the directed equilibrium (\cref{sec:formulation}).} We write the
 separable directed UE as a source-form nonlinear Laplacian flow $B\rho(B^\top\phi-\tau)=d$ with a one-sided
-(rectified) edge law, and show that the Newton Jacobian is a \emph{symmetric weighted graph Laplacian on the
-active subgraph} (\cref{prop:laplacian}). Orientation and one-sidedness do not break the Laplacian; they only
-determine which arcs are active. Hence the entire near-linear Laplacian toolbox applies.
+(rectified) edge law, and show that the Newton Jacobian is a \emph{symmetric} graph Laplacian on the
+active subgraph (\cref{prop:laplacian}). Orientation and one-sidedness do not break the Laplacian; they only
+determine which arcs are active. Hence the near-linear Laplacian toolbox applies.
 \item \textbf{A near-linear equilibrium solver robust to the dead zone (\cref{sec:solver}).} The rectified law
 is nonsmooth: a link carries flow only once its potential drop exceeds the free-flow cost $t^0_a$, so the active
 set---and the conditioning of the Jacobian---changes during a solve, defeating a naively frozen multigrid
 hierarchy. We introduce a \emph{smoothing homotopy}: a softplus dead-zone width $\delta$ that keeps the
 conductance strictly positive and the linearized system uniformly well conditioned, continued from a smooth
 problem to the exact law, with one algebraic-multigrid (AMG) setup per $\delta$-level and a final exact-law
-polish. The number of setups is bounded \emph{independently of the graph size}.
+polish. The number of setups is bounded independently of graph size.
 \item \textbf{A near-linear adjoint and design loop (\cref{sec:design}).} The design gradient is one additional
 Laplacian solve with the same operator; projected-gradient descent on it drives TSTT monotonically to the
 stationary point.
@@ -114,34 +113,30 @@ the adjoint matches finite differences to finite-difference accuracy; toll desig
 marginal-cost optimum. Setups per solve are bounded in graph size and the wall-clock scales near-linearly in
 $m$, so design inherits the near-linear inner cost.
 \end{enumerate}
-\paragraph{Scope: where the advantage lives.}
-The lower-level equilibrium \cref{eq:nlf} is the Wardrop (user) equilibrium of a nonlinear \emph{congestion
-game}~\citep{rosenthal1973,roughgarden2002}, and the design problem \cref{eq:bilevel} is the optimal-tolling /
+\subsection{Scope: Irregular Networks}
+The lower-level equilibrium \cref{eq:nlf} is the Wardrop equilibrium of a nonlinear congestion
+game~\citep{rosenthal1973,roughgarden2002}, and the design problem \cref{eq:bilevel} is the optimal-tolling /
 Stackelberg problem of reducing the price of anarchy~\citep{swamy2012,korilis1997}. This model describes selfish
-routing not only in road traffic but in \emph{communication and overlay networks}---multipath and elastic-traffic
+routing not only in road traffic but in communication and overlay networks such as multipath and elastic-traffic
 routing games in the Internet, data-center fabrics, and peer-to-peer overlays~\citep{orda1993,larroca2013}. The
 distinction matters for scalability: road networks are near-planar, where a direct nested-dissection
-factorization of the equilibrium Jacobian is near-optimal and a near-linear Laplacian solver has nothing to
-beat. Communication and overlay topologies, by contrast, are large and \emph{poorly separable} (scale-free
+factorization of the equilibrium Jacobian is already near-optimal. Communication and overlay topologies, by contrast, are large and \emph{poorly separable} (scale-free
 degree, no planar embedding), so a direct factorization fills in superlinearly---exactly the regime in which a
-near-linear Laplacian solver wins. Our scaling study is therefore on irregular networks; for the time being the near-linear advantage is
-established only here---on near-planar road networks a direct nested-dissection factorization is already
-near-optimal. The most literal instance is selfish
+near-linear Laplacian solver wins. Our scaling study is therefore on irregular networks; for the time we focus on establishing the near-linear advantage only here. The most literal instance is selfish
 \emph{overlay} routing, where end hosts genuinely choose paths~\citep{qiu2003}, on Internet AS- and router-level
 graphs that are provably scale-free~\citep{faloutsos1999}. Production traffic engineering
 optimizes operator-set link weights or bandwidth allocations by linear programming and local
 search~\citep{fortz2000}, not by pricing a selfish equilibrium, and packet-level congestion control is a distinct
-(utility-maximization) equilibrium. Our contribution is a scalable solver for the well-established
-equilibrium/design \emph{model} on standard large irregular topologies, complementing rather than replacing
+(utility-maximization) equilibrium. Our contribution is thus methodological, a scalable solver for the well-established
+equilibrium/design model on standard large irregular topologies, complementing rather than replacing
 operator tools.
 
-The construction reuses the nonlinear Laplacian flow (NLF) solver~\citep{nlf} and its near-linear inner engines,
-LAMG$+$~\citep{lamgplus} (the default) and approximate Cholesky~\citep{kyngsachdeva2016} (interchangeable). We treat both the single-commodity
+The construction reuses the nonlinear Laplacian flow (NLF) solver~\citep{nlf} and its near-linear inner engine,
+Lean Algebraic Multigrid (LAMG+)$+$~\citep{lamgplus} (approximate Cholesky~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
-to a handful of iterations. Remaining scope (\cref{sec:conclusion}): an active-set deflation that would make \emph{one}
-hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
-total) is left open.
+to a handful of iterations. Active-set deflation that would support a single hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
+total) is an open problem (\cref{sec:conclusion}).
 
 \section{The directed equilibrium is a nonlinear Laplacian flow}\label{sec:formulation}
 Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{h(a)}-e_{t(a)}$
@@ -177,8 +172,8 @@ inactive (dead-zone) arcs. \qed
 \end{proof}
 
 \Cref{prop:laplacian} is the structural fact this paper rests on: directedness enters only through \emph{which}
-arcs are active (a routing boundary), not through the type of the linear operator. Every linearized solve is a
-graph-Laplacian solve, so a near-linear Laplacian engine applies. This is complete for the single-commodity
+arcs are active (a routing boundary), not through the type of the linear operator. Every linearized system is a
+graph Laplacian, which can be solved fast. This is complete for the single-commodity
 equilibrium (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
 ($f_a=\sum_k f_a^k$ with a cost of the total flow) yields a coupled \emph{block} system---per-commodity
 Laplacians with a rank-one commodity coupling per arc---which a distribution-matrix block preconditioner still
@@ -194,18 +189,18 @@ framework~\citep{nlf}. Two features of the directed problem require care.
 On inactive arcs $\rho'_a=0$, so $J$ is singular unless a floor is imposed; a tiny floor $\varepsilon\max_a\rho'_a$
 with $\varepsilon=10^{-12}$ keeps $J$ connected without perturbing the Newton step, but drives the condition number
 to $\kappa\sim\varepsilon^{-1}$. More importantly, as flow builds the active set changes: arcs cross the
-free-flow threshold $t^0_a$, so the operator that a multigrid hierarchy is built for is \emph{stale} a few Newton
-steps later. A hierarchy frozen across the whole solve stalls short of the equilibrium.
+free-flow threshold $t^0_a$, so the operator that an Algebraic Multigrid (AMG) hierarchy is built for is stale a few Newton
+steps later. A hierarchy frozen across the whole solve stalls short of the equilibrium. (Conceivably, the hierarchy could be updated only locally, around active set changes; we leave this for future work.)
 
 \paragraph{Smoothing homotopy.}
 We remove the dead-zone nonsmoothness by a homotopy in a width $\delta>0$. Replace the excess $e=g-t^0_a$ by
 $\delta\,\mathrm{softplus}(e/\delta)$, which is smooth, strictly positive, and tends to $\max(e,0)$ as
 $\delta\to0$; the resulting smoothed law $\rho_{a,\delta}$ has $\rho'_{a,\delta}=\sigma(e/\delta)/t'_a(f_a)>0$
-\emph{everywhere} (here $\sigma$ is the logistic function), so $J$ is a full, uniformly well-conditioned
+\emph{everywhere} (where $\sigma$ is the logistic function), so $J$ is a full, uniformly well-conditioned
 Laplacian with no dead zone. We continue $\delta$ geometrically from $\delta_0=\tfrac12\bar t^0$ down to a small
-value, building one AMG hierarchy at the start of each $\delta$-level and freezing it \emph{within} the level;
+value, building one AMG hierarchy at the start of each $\delta$-level and freezing it within the level;
 the smoothed conductances vary slowly within a level, so the frozen hierarchy is valid there. A final
-\emph{polish} with the exact law \cref{eq:rho}, warm-started from the smoothed solution, recovers the exact
+polish with the exact law \cref{eq:rho}, warm-started from the smoothed solution, recovers the exact
 rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the number
 of AMG setups per solve is bounded independently of the graph size $m$.
 

@@ -40,21 +40,7 @@ Consequently the whole solve---forward equilibrium \emph{and} adjoint design gra
 sequence of near-linear Laplacian solves. The one obstacle, that the rectified dead zone makes the Jacobian
 ill-conditioned and its active set change during a solve, is handled by a smoothing homotopy in a dead-zone
 width $\delta$ that keeps the linearized system uniformly well conditioned, followed by a single exact-law
-polish. On the Sioux Falls network NLF matches Frank--Wolfe to $10^{-11}$, the adjoint gradient matches
-central finite differences to within finite-difference error, and projected-gradient toll design reduces total
-system travel time monotonically to the exact (marginal-cost) optimum. The number of algebraic-multigrid setups
-per equilibrium solve is bounded independently of the graph size, and the wall-clock scales near-linearly in the
-edge count while a direct factorization scales superlinearly, so on large \emph{irregular} congestion networks
-(scale-free communication and overlay topologies) NLF overtakes the direct factorization at a
-crossover; the design optimization inherits this near-linear per-step cost. Road networks, being near-planar, are
-the regime where a direct nested-dissection factorization is already near-optimal and NLF does
-\emph{not} win; the advantage is on the poorly-separable networks that model selfish routing in communication
-systems. We further extend the framework to the \emph{multicommodity} logit stochastic
-user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
-preconditioner solves in a handful of iterations, and the design adjoint again returns the gradient for all
-tolls in one solve; on the Sioux Falls and Anaheim road networks with their published origin--destination
-matrices, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$ with a bounded
-inner-iteration count. Code is available at \url{https://github.com/orenlivne/dnlf}.
+polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and toll design reaches the exact marginal-cost optimum. The wall-clock scales near-linearly in the edge count while a direct factorization scales superlinearly, so on large \emph{irregular} congestion networks NLF overtakes direct factorization at a crossover, and the design inherits this near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already near-optimal, NLF does \emph{not} win; the advantage is on poorly-separable networks such as those modeling selfish routing. We extend the framework to the \emph{multicommodity} logit stochastic user equilibrium, where a block preconditioner solves the coupled block-Laplacian Newton system in a handful of iterations and the design adjoint again returns all toll gradients in one solve; on the Sioux Falls and Anaheim road networks, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$. Code is available at \url{https://github.com/orenlivne/dnlf}.
 }
 
 \KEYWORDS{network design; traffic assignment; user equilibrium; bilevel optimization; nonlinear Laplacian
@@ -132,7 +118,7 @@ equilibrium/design model on standard large irregular topologies, complementing r
 operator tools.
 
 The construction reuses the NLF solver~\citep{nlf} and its near-linear inner engine,
-Lean Algebraic Multigrid (LAMG+)$+$~\citep{lamgplus} (approximate Cholesky (AC)~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
+Lean Algebraic Multigrid (LAMG$+$)~\citep{lamgplus} (approximate Cholesky (AC)~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
 to a handful of iterations. Active-set deflation that would support a single hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$

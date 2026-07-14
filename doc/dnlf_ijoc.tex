@@ -362,7 +362,7 @@ good fill-reducing ordering still wins. Which solver wins is set by the graph's 
 edge count alone. The near-linear solver is already competitive-to-faster on the actual application
 topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
-\paragraph{Corpus scaling.}
+\subsection{Corpus Scaling}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
 SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
@@ -435,7 +435,7 @@ engines---LAMG$+$ (default) and approximate Cholesky, both fitting $m^{1.11}$---
 factorization ($m^{1.36}$), the near-linear engines crossing the direct baseline near
 $m\approx1.5\times10^4$.}\label{fig:scaling}\end{figure}
 
-\paragraph{Comparison with differentiable-bilevel (first-order) solvers.}
+\subsection{Comparison with Differentiable-Bilevel (First-Order) Solvers}
 The learning-based approach to Stackelberg congestion design~\citep{li2022,goyal2023} treats the lower-level
 equilibrium as a differentiable layer: it is solved by a first-order scheme (unrolled imitative-logit dynamics;
 entropic mirror descent) and differentiated by unrolling or implicit differentiation. Their released code is
@@ -473,7 +473,7 @@ instance & $n$ & $m$ & ours (s) & FISTA (s) & FISTA relres\\\midrule
 \end{tabular}
 \end{table}
 
-\paragraph{Reproducibility.}
+\subsection{Reproducibility}
 All code, unit tests, and reproduction drivers are available at \url{https://github.com/orenlivne/dnlf}; the
 repository regenerates every table and figure in this paper---the crossover (\cref{tab:scaling},
 \cref{fig:scaling}), the real-corpus table (\cref{tab:corpus}), the first-order head-to-head

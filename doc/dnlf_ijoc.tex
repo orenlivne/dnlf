@@ -187,7 +187,7 @@ Laplacian with no dead zone. We continue $\delta$ geometrically from $\delta_0=\
 value, building one AMG hierarchy at the start of each $\delta$-level and freezing it within the level;
 the smoothed conductances vary slowly within a level, so the frozen hierarchy is valid there. Each $\delta$-level need only be solved approximately; a final
 polish with the exact law \cref{eq:rho}, warm-started from the smoothed solution, recovers the exact
-rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the total number of AMG setups is bounded independently of graph size $m$.
+rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the total number of inner-engine setups is bounded independently of graph size $m$.
 
 We give a self-contained convergence guarantee for the
 smoothed level solve, so the paper does not depend on external convergence theory.
@@ -315,11 +315,7 @@ within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reductio
 multicommodity instances of \cref{sec:mc}.
 
 \subsection{Scaling on Irregular Networks}
-We use loose tolerances at intermediate continuation levels---a few Newton steps per $\delta$-level, tight only
-at the final level and the polish (the standard nested-iteration principle: continuation waypoints need only
-warm-start the next level). This cuts the Newton-step count with no change to the final solution, and keeps the
-algebraic-multigrid setups bounded (one per $\delta$-level) and independent of size. On size-scaled irregular
-(poorly-separable) congested networks the equilibrium wall-clock then scales near-linearly, $t\propto m^{1.11}$
+On size-scaled irregular (poorly-separable) congested networks the equilibrium wall-clock scales near-linearly, $t\propto m^{1.11}$
 with either near-linear engine (the default LAMG$+$ and AC fit the \emph{same} exponent), while
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
 (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
@@ -336,17 +332,6 @@ all size-independent, so the wall-clock exponent reflects a single {near-linear 
 for both engines (the reason for the slight super-linearity in practice is lack of memory locality). The two engines are
 interchangeable; we use LAMG$+$ by default for its robustness on large graph instances (\cref{tab:scaling}).
 
-We corroborate this on real-world irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
-autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
-(\cref{tab:corpus}; at these sub-crossover sizes we use AC). The inner-engine setup count is size-independent ($14$--$20$) across the corpus, confirming
-NLF scales linearly on real graphs. The head-to-head against the fair direct baseline is genuinely
-instance-dependent at these accessible sizes ($n\le2.6\times10^4$): the NLF solve is $1.5$--$1.6\times$
-faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
-\texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a
-good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its
-edge count alone. NLF is already competitive-to-faster on the actual application
-topologies, with the advantage concentrated on the sparsest, least-separable instances.
-
 \subsection{Corpus Scaling}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
@@ -359,8 +344,9 @@ $t\propto m^{0.99}$ and the inner-engine setup count stays \emph{bounded} in $[7
 time already varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
 collaboration graph of equal edge count), which broadens the scatter and pulls the fit just below $1$---we do not
 read the $0.99$ as better-than-linear, nor its $0.12$ gap from the synthetic $1.11$ as a real exponent
-difference; both are consistent with the $m\,\mathrm{polylog}\,m$ theory. Timing is serial and uncontended; the
-smaller head-to-head of \cref{tab:corpus} instead uses AC to face the direct baseline.
+difference; both are consistent with the $m\,\mathrm{polylog}\,m$ theory. Timing is serial and uncontended.
+
+Six of these corpus graphs, at accessible sizes below the direct-solver crossover ($n\le2.6\times10^4$), we also run head-to-head against the fair frozen-per-level direct baseline (\cref{tab:corpus}, timed with AC). The comparison is instance-dependent: the NLF solve is $1.5$--$1.6\times$ faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its edge count alone; NLF is competitive-to-faster on the actual application topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time (default LAMG$+$ engine) vs.\ edge count across a topology-diverse corpus of

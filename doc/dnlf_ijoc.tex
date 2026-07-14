@@ -353,7 +353,7 @@ multigrid $O(m)$ guarantee and steadier large-size timing (\cref{tab:scaling}).
 
 We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
 autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
-(\cref{tab:corpus}; timed with approximate Cholesky, the interchangeable engine, at these sub-crossover sizes). The AMG setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
+(\cref{tab:corpus}; timed with approximate Cholesky, the interchangeable engine, at these sub-crossover sizes). The inner-engine setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
 the algorithm is size-optimal on real graphs. The head-to-head against the fair direct baseline is genuinely
 instance-dependent at these accessible sizes ($n\le2.6\times10^4$): approximate Cholesky is $1.5$--$1.6\times$
 faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
@@ -387,7 +387,7 @@ complexity estimate (\cref{sec:results}). Serial, uncontended timing on an Apple
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
 component): Internet AS graphs and P2P overlays. Near-linear approximate Cholesky vs.\ the fair
-frozen-per-level direct baseline; AMG \emph{setups} stay size-independent ($14$--$20$ across the corpus).
+frozen-per-level direct baseline; inner-engine \emph{setups} stay size-independent ($14$--$20$ across the corpus).
 Single run on one workstation; approximate Cholesky is randomized, so wall-clock and setup counts vary
 $\pm$($10$--$30$)\% run to run---the qualitative winner per graph is stable, the third digit is not.
 Dash: direct capped at $m>1.5\times10^5$.}

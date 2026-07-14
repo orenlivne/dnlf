@@ -299,19 +299,19 @@ We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks.
 LAMG$+$~\citep{lamgplus} by default; approximate Cholesky~\citep{kyngsachdeva2016} is interchangeable (the two
 fit the same $m^{1.11}$ scaling; \cref{tab:scaling}).
 
-\paragraph{Correctness of the equilibrium.}
+\subsection{Correctness of the Equilibrium}
 On a congested Sioux Falls instance ($29$ active arcs, flow split across paths) \cref{alg:solve} matches an
 independent Frank--Wolfe assignment to a relative flow difference of $4$--$9\times10^{-11}$ across origin--
 destination pairs, i.e.\ to Frank--Wolfe's own accuracy. The number of inner-engine setups is $10$--$25$
 per solve, set by the fixed number of $\delta$-levels and independent of graph size.
 
-\paragraph{Correctness of the adjoint.}
+\subsection{Correctness of the Adjoint}
 On the same congested instance the adjoint gradient \cref{eq:adjoint} matches central finite differences of TSTT
 to a maximum relative error of $2.6\times10^{-3}$ over all active arcs (limited by the finite-difference step and
 equilibrium tolerance, not by the adjoint). The tiny conductance floor $\varepsilon=10^{-12}$ is essential: a
 larger floor ($10^{-6}$) biases the adjoint to a $5\%$ error.
 
-\paragraph{Design.}
+\subsection{Design Optimization}
 Projected-gradient toll design (\cref{alg:design}) reduces TSTT monotonically from $9.633\times10^5$ to
 $9.137\times10^5$, a $5.15\%$ reduction over $35$ accepted steps, with every equilibrium solved exactly
 (relative flow error $\sim10^{-9}$). This matches the exact optimum: a one-parameter sweep of scaled
@@ -324,10 +324,10 @@ the accepted $\tau$ trajectory itself, so tightening only the \emph{final} equil
 $\varepsilon_{\mathrm{tol}}$ would sharpen the reported TSTT without moving $\tau$, and closing the gap in $\tau$
 would instead require a design-loop polish---a few tight-tolerance steps from the loose optimum, mirroring
 \cref{alg:solve}'s polish stage---which we expect to shrink it only marginally, since the loose run already sits
-within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reduction is modest because a single origin--destination pair admits little rerouting; the
-multicommodity instances of \cref{sec:mc} exercise the design problem more fully.
+within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reduction is modest because a single origin--destination pair admits little rerouting; the design problem is more involved for the
+multicommodity instances of \cref{sec:mc}.
 
-\paragraph{Scaling on irregular networks.}
+\subsection{Scaling on Irregular Networks}
 We use loose tolerances at intermediate continuation levels---a few Newton steps per $\delta$-level, tight only
 at the final level and the polish (the standard nested-iteration principle: continuation waypoints need only
 warm-start the next level). This cuts the Newton-step count with no change to the final solution, and keeps the

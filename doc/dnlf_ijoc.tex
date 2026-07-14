@@ -319,7 +319,12 @@ marginal-cost (Pigouvian) tolls bottoms out at $5.12\%$, confirming the gradient
 point. Solving every equilibrium only to a loose $10^{-3}$ tolerance reaches the \emph{same} optimum (TSTT within
 $0.004\%$, tolls within $\|\Delta\tau\|=0.13$), confirming that the design gradient is insensitive to
 intermediate solve accuracy---so the loose-intermediate continuation used for scaling costs nothing in design
-quality. The reduction is modest because a single origin--destination pair admits little rerouting; the
+quality. The residual gap reflects where the loose tolerance was applied, not where it was measured: it fixes
+the accepted $\tau$ trajectory itself, so tightening only the \emph{final} equilibrium evaluation to
+$\varepsilon_{\mathrm{tol}}$ would sharpen the reported TSTT without moving $\tau$, and closing the gap in $\tau$
+would instead require a design-loop polish---a few tight-tolerance steps from the loose optimum, mirroring
+\cref{alg:solve}'s polish stage---which we expect to shrink it only marginally, since the loose run already sits
+within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reduction is modest because a single origin--destination pair admits little rerouting; the
 multicommodity instances of \cref{sec:mc} exercise the design problem more fully.
 
 \paragraph{Scaling on irregular networks.}

@@ -132,7 +132,7 @@ equilibrium/design model on standard large irregular topologies, complementing r
 operator tools.
 
 The construction reuses the nonlinear Laplacian flow (NLF) solver~\citep{nlf} and its near-linear inner engine,
-Lean Algebraic Multigrid (LAMG+)$+$~\citep{lamgplus} (approximate Cholesky~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
+Lean Algebraic Multigrid (LAMG+)$+$~\citep{lamgplus} (approximate Cholesky (AC)~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
 to a handful of iterations. Active-set deflation that would support a single hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
@@ -296,7 +296,7 @@ equilibrium solve by \cref{alg:solve}---yields a monotone design method (\cref{a
 
 \section{Numerical results}\label{sec:results}
 We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is
-LAMG$+$~\citep{lamgplus} by default; approximate Cholesky~\citep{kyngsachdeva2016} is interchangeable (the two
+LAMG$+$~\citep{lamgplus} by default; AC~\citep{kyngsachdeva2016} is interchangeable (the two
 fit the same $m^{1.11}$ scaling; \cref{tab:scaling}).
 
 \subsection{Correctness of the Equilibrium}
@@ -333,7 +333,7 @@ at the final level and the polish (the standard nested-iteration principle: cont
 warm-start the next level). This cuts the Newton-step count with no change to the final solution, and keeps the
 algebraic-multigrid setups bounded (one per $\delta$-level) and independent of size. On size-scaled irregular
 (poorly-separable) congested networks the equilibrium wall-clock then scales near-linearly, $t\propto m^{1.11}$
-with either near-linear engine (the default LAMG$+$ and approximate Cholesky fit the \emph{same} exponent), while
+with either near-linear engine (the default LAMG$+$ and AC fit the \emph{same} exponent), while
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
 (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
 COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear
@@ -344,18 +344,17 @@ exhausts memory at $m=3.2\times10^5$, the random-graph fill-in exceeding RAM (\c
 crossover the constant favors the direct solver; the wall-clock gap above it is modest, and the sharper practical
 separation is the memory wall direct factorization hits and the near-linear solver does not---a genuine
 near-linear-versus-superlinear crossover on this graph class, not a large-factor speedup.
-The near-linear exponent is inherited from the inner solve, not the outer iteration: the chord-Newton step count
+The near-linear exponent is inherited from the inner solve, not the outer iteration: the total chord-Newton step count
 ($\approx\!625$), inner-engine setups ($\approx\!14$), and per-step Jacobian assembly ($t\propto m^{1.02}$) are
-all size-independent, so the wall-clock exponent reflects a single \emph{near-linear inner solve}---$m^{1.11}$
-for both engines ($m\,\mathrm{polylog}\,m$ in theory, inflated above $1$ by memory locality). The two engines are
-interchangeable, tracking the same $m^{1.11}$ curve within a few percent; LAMG$+$ is the default for its cleaner
-multigrid $O(m)$ guarantee and steadier large-size timing (\cref{tab:scaling}).
+all size-independent, so the wall-clock exponent reflects a single {near-linear inner solve---$m^{1.11}$
+for both engines (the reason for the slight super-linearity in practice is lack of memory locality). The two engines are
+interchangeable; we use LAMG$+$ by default for its robustness on large graph instances (\cref{tab:scaling}).
 
-We corroborate this on \emph{real} irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
+We corroborate this on real-world irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
 autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
-(\cref{tab:corpus}; timed with approximate Cholesky, the interchangeable engine, at these sub-crossover sizes). The inner-engine setup count is size-independent ($14$--$20$ builds) across the corpus, confirming
-the algorithm is size-optimal on real graphs. The head-to-head against the fair direct baseline is genuinely
-instance-dependent at these accessible sizes ($n\le2.6\times10^4$): approximate Cholesky is $1.5$--$1.6\times$
+(\cref{tab:corpus}; at these sub-crossover sizes we use AC). The inner-engine setup count is size-independent ($14$--$20$) across the corpus, confirming
+the algorithm scales linearly on real graphs. The head-to-head against the fair direct baseline is genuinely
+instance-dependent at these accessible sizes ($n\le2.6\times10^4$): the NLF solve is $1.5$--$1.6\times$
 faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
 \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a
 good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its
@@ -375,7 +374,7 @@ time already varies several-fold with separator structure (a word-association gr
 collaboration graph of equal edge count), which broadens the scatter and pulls the fit just below $1$---we do not
 read the $0.99$ as better-than-linear, nor its $0.12$ gap from the synthetic $1.11$ as a real exponent
 difference; both are consistent with the $m\,\mathrm{polylog}\,m$ theory. Timing is serial and uncontended; the
-smaller head-to-head of \cref{tab:corpus} instead uses approximate Cholesky to face the direct baseline.
+smaller head-to-head of \cref{tab:corpus} instead uses AC to face the direct baseline.
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time (default LAMG$+$ engine) vs.\ edge count across a topology-diverse corpus of
@@ -386,14 +385,14 @@ complexity estimate (\cref{sec:results}). Serial, uncontended timing on an Apple
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
-component): Internet AS graphs and P2P overlays. Near-linear approximate Cholesky vs.\ the fair
+component): Internet AS graphs and P2P overlays. Near-linear AC vs.\ the fair
 frozen-per-level direct baseline; inner-engine \emph{setups} stay size-independent ($14$--$20$ across the corpus).
-Single run on one workstation; approximate Cholesky is randomized, so wall-clock and setup counts vary
+Single run on one workstation; AC is randomized, so wall-clock and setup counts vary
 $\pm$($10$--$30$)\% run to run---the qualitative winner per graph is stable, the third digit is not.
 Dash: direct capped at $m>1.5\times10^5$.}
 \label{tab:corpus}
 \begin{tabular}{lrrrrr}\toprule
-graph & $n$ & $m$ & approx.\ Chol. & direct & setups\\\midrule
+graph & $n$ & $m$ & AC & direct & setups\\\midrule
 \texttt{as-735} (AS)         & $6{,}474$  & $25{,}144$  & $35.9$  & $20.5$  & $18$\\
 \texttt{p2p-Gnutella08}      & $6{,}299$  & $41{,}552$  & $35.4$  & $53.6$  & $14$\\
 \texttt{Oregon-1} (AS)       & $11{,}174$ & $46{,}818$  & $39.7$  & $61.7$  & $20$\\
@@ -405,16 +404,16 @@ graph & $n$ & $m$ & approx.\ Chol. & direct & setups\\\midrule
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
-clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) and approximate Cholesky
-(interchangeable)---vs.\ the fair frozen-per-level direct factorization. LAMG$+$ and approximate Cholesky fit the
+clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) and AC
+(interchangeable)---vs.\ the fair frozen-per-level direct factorization. LAMG$+$ and AC fit the
 \emph{same} exponent, $m^{1.11}$, and track within a few percent; direct scales as $m^{1.36}$ and is overtaken
 near $m\approx1.5\times10^4$. \emph{OOM}: direct factorization exhausts memory at $m\ge3.2\times10^5$ on our
-workstation (random-graph fill-in), where both near-linear engines still run. Approximate Cholesky's randomized
+workstation (random-graph fill-in), where both near-linear engines still run. AC's randomized
 elimination makes it less predictable at the largest size (the $547.7$~s here rose to $856$~s on a second clean
 run, vs.\ LAMG$+$'s stable $526$--$533$~s); LAMG$+$ is the default for its cleaner theoretical $O(m)$ guarantee.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
-$n$ & $m$ & LAMG$+$ & approx.\ Cholesky & direct\\\midrule
+$n$ & $m$ & LAMG$+$ & AC & direct\\\midrule
 $1{,}000$  & $9{,}964$   & $4.90$   & $4.93$   & $4.55$\\
 $2{,}000$  & $19{,}946$  & $11.01$  & $12.88$  & $10.58$\\
 $4{,}000$  & $39{,}952$  & $22.54$  & $20.46$  & $26.81$\\
@@ -431,7 +430,7 @@ there---which is why we frame the advantage on the communication-network regime.
 
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
 \caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: the two near-linear
-engines---LAMG$+$ (default) and approximate Cholesky, both fitting $m^{1.11}$---vs.\ superlinear direct
+engines---LAMG$+$ (default) and AC, both fitting $m^{1.11}$---vs.\ superlinear direct
 factorization ($m^{1.36}$), the near-linear engines crossing the direct baseline near
 $m\approx1.5\times10^4$.}\label{fig:scaling}\end{figure}
 
@@ -458,7 +457,7 @@ scale, and why replacing their inner solve is the contribution here.
 
 \begin{table}[t]\centering
 \caption{Inner-solver head-to-head on the identical convex equilibrium, same cold start. Ours (Newton $+$
-approximate Cholesky, loose-intermediate continuation) to relative residual $10^{-9}$; FISTA (accelerated
+AC, loose-intermediate continuation) to relative residual $10^{-9}$; FISTA (accelerated
 first-order---the differentiable-bilevel inner) targeting $10^{-6}$ but capped at $300$\,s, which it hits on
 every instance, reaching only the residual shown.}
 \label{tab:baseline}
@@ -529,7 +528,7 @@ $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 
 \paragraph{Near-linear solve.}
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
-block diagonal---one near-linear solve per commodity (approximate Cholesky here, interchangeable with the default
+block diagonal---one near-linear solve per commodity (AC here, interchangeable with the default
 LAMG$+$; on the small, concentrated per-commodity Laplacians the two are equivalent). The rank-one commodity coupling is
 exactly Brandt's \emph{distribution matrix}~\citep{brandt1984}: in the mean/deviation basis over commodities it
 decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
@@ -537,7 +536,7 @@ their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is 
 grows only logarithmically in $K$, and is independent of graph size $n$ at the operating dispersion
 $\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, and the equilibrium solve is
 near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor
-($10^{-12}$ of its maximum weight) so it stays connected and the approximate-Cholesky factorization remains
+($10^{-12}$ of its maximum weight) so it stays connected and the AC factorization remains
 applicable even to a commodity that concentrates on few arcs; a pinned direct solve is retained only as a
 fallback for the rare inputs on which the multigrid factorization throws. The count is single digit at and near
 equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); only the
@@ -672,7 +671,7 @@ already near-optimal (\cref{sec:intro}). (v) \textbf{Saturating laws and folds.}
 of~\citet{nlf}, is future work.
 
 \ACKNOWLEDGMENT{This work builds on the NLF and LAMG$+$ solvers; the author thanks the developers of the
-approximate-Cholesky implementation it uses.}
+AC implementation it uses.}
 
 \begin{thebibliography}{}
 \bibitem[Tobin and Friesz(1988)]{tobinfriesz1988} R.~L.~Tobin and T.~L.~Friesz, \emph{Sensitivity analysis for equilibrium network flow},

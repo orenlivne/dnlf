@@ -34,20 +34,20 @@ back-substituting per design variable, so its cost is already independent of the
 the remaining bottleneck is that this factorization is cubic in the size of the active subnetwork, which caps
 exact design methods near a hundred links while forward assignment reaches metropolitan scale.
 We remove that bottleneck. We show that the \emph{directed} user equilibrium with separable costs is a
-source-form nonlinear Laplacian flow $B\rho(B^\top\phi-\tau)=d$ whose Newton Jacobian, despite the
+source-form nonlinear Laplacian flow (NLF) $B\rho(B^\top\phi-\tau)=d$ whose Newton Jacobian, despite the
 one-sided (rectified) edge law, remains a \emph{symmetric weighted graph Laplacian on the active subgraph}.
 Consequently the whole solve---forward equilibrium \emph{and} adjoint design gradient---reduces to a short
 sequence of near-linear Laplacian solves. The one obstacle, that the rectified dead zone makes the Jacobian
 ill-conditioned and its active set change during a solve, is handled by a smoothing homotopy in a dead-zone
 width $\delta$ that keeps the linearized system uniformly well conditioned, followed by a single exact-law
-polish. On the Sioux Falls network the solver matches Frank--Wolfe to $10^{-11}$, the adjoint gradient matches
+polish. On the Sioux Falls network NLF matches Frank--Wolfe to $10^{-11}$, the adjoint gradient matches
 central finite differences to within finite-difference error, and projected-gradient toll design reduces total
 system travel time monotonically to the exact (marginal-cost) optimum. The number of algebraic-multigrid setups
 per equilibrium solve is bounded independently of the graph size, and the wall-clock scales near-linearly in the
 edge count while a direct factorization scales superlinearly, so on large \emph{irregular} congestion networks
-(scale-free communication and overlay topologies) the near-linear solver overtakes the direct factorization at a
+(scale-free communication and overlay topologies) NLF overtakes the direct factorization at a
 crossover; the design optimization inherits this near-linear per-step cost. Road networks, being near-planar, are
-the regime where a direct nested-dissection factorization is already near-optimal and the near-linear solver does
+the regime where a direct nested-dissection factorization is already near-optimal and NLF does
 \emph{not} win; the advantage is on the poorly-separable networks that model selfish routing in communication
 systems. We further extend the framework to the \emph{multicommodity} logit stochastic
 user equilibrium, where the Newton system is a coupled block-Laplacian that a distribution-matrix block
@@ -94,7 +94,7 @@ We close that gap by replacing the superlinear inner factorization with a near-l
 equilibrium and the adjoint, without compromising accuracy. Our contributions are:
 \begin{enumerate}[leftmargin=*]
 \item \textbf{A Laplacian formulation of the directed equilibrium (\cref{sec:formulation}).} We write the
-separable directed UE as a source-form nonlinear Laplacian flow $B\rho(B^\top\phi-\tau)=d$ with a one-sided
+separable directed UE as a source-form nonlinear Laplacian flow (NLF) $B\rho(B^\top\phi-\tau)=d$ with a one-sided
 (rectified) edge law, and show that the Newton Jacobian is a \emph{symmetric} graph Laplacian on the
 active subgraph (\cref{prop:laplacian}). Orientation and one-sidedness do not break the Laplacian; they only
 determine which arcs are active. Hence the near-linear Laplacian toolbox applies.
@@ -108,7 +108,7 @@ polish. The number of setups is bounded independently of graph size.
 \item \textbf{A near-linear adjoint and design loop (\cref{sec:design}).} The design gradient is one additional
 Laplacian solve with the same operator; projected-gradient descent on it drives TSTT monotonically to the
 stationary point.
-\item \textbf{Validation (\cref{sec:results}).} On Sioux Falls the solver matches Frank--Wolfe to $10^{-11}$;
+\item \textbf{Validation (\cref{sec:results}).} On Sioux Falls NLF matches Frank--Wolfe to $10^{-11}$;
 the adjoint matches finite differences to finite-difference accuracy; toll design reaches the exact
 marginal-cost optimum. Setups per solve are bounded in graph size and the wall-clock scales near-linearly in
 $m$, so design inherits the near-linear inner cost.
@@ -131,7 +131,7 @@ search~\citep{fortz2000}, not by pricing a selfish equilibrium, and packet-level
 equilibrium/design model on standard large irregular topologies, complementing rather than replacing
 operator tools.
 
-The construction reuses the nonlinear Laplacian flow (NLF) solver~\citep{nlf} and its near-linear inner engine,
+The construction reuses the NLF solver~\citep{nlf} and its near-linear inner engine,
 Lean Algebraic Multigrid (LAMG+)$+$~\citep{lamgplus} (approximate Cholesky (AC)~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
 equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
@@ -295,6 +295,7 @@ equilibrium solve by \cref{alg:solve}---yields a monotone design method (\cref{a
 \end{algorithm}
 
 \section{Numerical results}\label{sec:results}
+We refer to our directed-equilibrium solver (\cref{alg:solve}, a smoothing-homotopy continuation with a near-linear inner engine) as NLF throughout.
 We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is
 LAMG$+$~\citep{lamgplus} by default; AC~\citep{kyngsachdeva2016} is interchangeable (the two
 fit the same $m^{1.11}$ scaling; \cref{tab:scaling}).
@@ -336,13 +337,12 @@ algebraic-multigrid setups bounded (one per $\delta$-level) and independent of s
 with either near-linear engine (the default LAMG$+$ and AC fit the \emph{same} exponent), while
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
 (\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
-COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. The near-linear
-solver overtakes the direct one at $m\approx1.5\times10^{4}$ edges ($n\approx1{,}500$), beyond which it is faster
+COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. NLF overtakes the direct one at $m\approx1.5\times10^{4}$ edges ($n\approx1{,}500$), beyond which it is faster
 with a widening margin---about $1.6\times$ at $m=1.6\times10^5$ ($99$ vs.\ $161$~s)---and it reaches
 $m=6.4\times10^5$ in ${\approx}526$~s, where the direct factorization is infeasible: on our workstation it already
 exhausts memory at $m=3.2\times10^5$, the random-graph fill-in exceeding RAM (\cref{tab:scaling}). Below the
 crossover the constant favors the direct solver; the wall-clock gap above it is modest, and the sharper practical
-separation is the memory wall direct factorization hits and the near-linear solver does not---a genuine
+separation is the memory wall direct factorization hits and NLF does not---a genuine
 near-linear-versus-superlinear crossover on this graph class, not a large-factor speedup.
 The near-linear exponent is inherited from the inner solve, not the outer iteration: the total chord-Newton step count
 ($\approx\!625$), inner-engine setups ($\approx\!14$), and per-step Jacobian assembly ($t\propto m^{1.02}$) are
@@ -353,12 +353,12 @@ interchangeable; we use LAMG$+$ by default for its robustness on large graph ins
 We corroborate this on real-world irregular networks from the SuiteSparse/SNAP collection~\citep{leskovec2007}---Internet
 autonomous-system graphs and peer-to-peer overlays, the topologies of the selfish-routing application
 (\cref{tab:corpus}; at these sub-crossover sizes we use AC). The inner-engine setup count is size-independent ($14$--$20$) across the corpus, confirming
-the algorithm scales linearly on real graphs. The head-to-head against the fair direct baseline is genuinely
+NLF scales linearly on real graphs. The head-to-head against the fair direct baseline is genuinely
 instance-dependent at these accessible sizes ($n\le2.6\times10^4$): the NLF solve is $1.5$--$1.6\times$
 faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on
 \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a
 good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its
-edge count alone. The near-linear solver is already competitive-to-faster on the actual application
+edge count alone. NLF is already competitive-to-faster on the actual application
 topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
 \subsection{Corpus Scaling}

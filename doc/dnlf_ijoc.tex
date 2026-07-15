@@ -336,15 +336,13 @@ interchangeable; we use LAMG$+$ by default for its robustness on large graph ins
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
 SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
-word-association, and web networks (collaboration and peer-to-peer the largest groups)---spanning
-$2.5\times10^4$ to $7\times10^5$ arcs (${\approx}1.45$ decades of edge count). The wall-clock fits
-$t\propto m^{0.99}$ and the inner-engine setup count stays \emph{bounded} in $[7,27]$ across the entire corpus
+word-association, and web networks (collaboration and peer-to-peer the largest groups), spanning
+$2.5\times10^4$ to $7\times10^5$ arcs.  Timing was serial and uncontended. The wall-clock fits
+$t\propto m^{0.99}$ and the inner-engine setup count stays bounded across the entire corpus
 (\cref{fig:corpus}), consistent with the $m^{1.11}$ and flat setups of the controlled synthetic family
-(\cref{tab:scaling}). This corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
-time already varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
-collaboration graph of equal edge count), which broadens the scatter and pulls the fit just below $1$---we do not
-read the $0.99$ as better-than-linear, nor its $0.12$ gap from the synthetic $1.11$ as a real exponent
-difference; both are consistent with the $m\,\mathrm{polylog}\,m$ theory. Timing is serial and uncontended.
+(\cref{tab:scaling}). Note that this corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
+time varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
+collaboration graph of equal edge count), which broadens the scatter.
 
 Six of these corpus graphs, at accessible sizes below the direct-solver crossover ($n\le2.6\times10^4$), we also run head-to-head against the fair frozen-per-level direct baseline (\cref{tab:corpus}, timed with AC). The comparison is instance-dependent: the NLF solve is $1.5$--$1.6\times$ faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its edge count alone; NLF is competitive-to-faster on the actual application topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
@@ -382,7 +380,7 @@ clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) an
 near $m\approx1.5\times10^4$. \emph{OOM}: direct factorization exhausts memory at $m\ge3.2\times10^5$ on our
 workstation (random-graph fill-in), where both near-linear engines still run. AC's randomized
 elimination makes it less predictable at the largest size (the $547.7$~s here rose to $856$~s on a second clean
-run, vs.\ LAMG$+$'s stable $526$--$533$~s); LAMG$+$ is the default for its cleaner theoretical $O(m)$ guarantee.}
+run, vs.\ LAMG$+$'s stable $526$--$533$~s); LAMG$+$ has a cleaner near-linear complexity, and used by default.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
 $n$ & $m$ & LAMG$+$ & AC & direct\\\midrule
@@ -412,11 +410,11 @@ equilibrium as a differentiable layer: it is solved by a first-order scheme (unr
 entropic mirror descent) and differentiated by unrolling or implicit differentiation. Their released code is
 toy-scale and does not run on the $10^4$--$10^5$-node irregular graphs here, so we reproduce the defining
 component---a first-order inner equilibrium solve---in the same environment and on the same instances. To
-isolate the inner solver, both methods minimize the \emph{identical} convex Beckmann energy from the same cold
+isolate the inner solver, both methods minimize the identical convex Beckmann energy from the same cold
 start; only the inner iteration differs. For the first-order inner we use FISTA (accelerated proximal gradient
 with backtracking line search)---a strong, well-tuned member of the first-order family, if anything faster than
 plain mirror descent---so the comparison is not a strawman. \Cref{tab:baseline} reports the outcome: our
-Newton--multigrid inner reaches relative residual $10^{-9}$ in seconds, whereas FISTA, given a $300$-second
+Newton--multigrid inner reaches relative residual $10^{-9}$ in seconds; FISTA, given a $300$-second
 budget on every instance, never reaches the $10^{-6}$ target---it plateaus between $10^{-5}$ on the smallest
 graph and $5\times10^{-2}$ on the largest, the residual worsening with size as fewer iterations fit in the
 budget. It approaches the same solution (flow within $1.7\%$ on \texttt{as-735}) but never to solve accuracy.
@@ -425,7 +423,7 @@ Beckmann Hessian severely ill-conditioned, and an accelerated first-order method
 $\Theta(\sqrt{\kappa})$ iterations, so on \texttt{as-735} ($n=6{,}474$) it takes $44{,}499$ iterations to reach
 only $1.2\times10^{-2}$. A first-order inner therefore has no fast, size-independent convergence on stiff
 equilibria, whereas the Newton--multigrid inner does---which is why these methods are demonstrated only at small
-scale, and why replacing their inner solve is the contribution here.
+scale, and why replacing their inner solve is novel.
 
 \begin{table}[t]\centering
 \caption{Inner-solver head-to-head on the identical convex equilibrium, same cold start. Ours (Newton $+$
@@ -457,7 +455,7 @@ OD matrices (shipped with the code) and public Internet AS / P2P-overlay graphs 
 
 \section{Multicommodity logit stochastic user equilibrium and design}\label{sec:mc}
 The single-commodity solver of \cref{sec:solver} routes a general balanced demand as one fungible flow.
-Realistic congestion pricing is inherently \emph{multicommodity}: each origin--destination (OD) pair routes its
+Realistic congestion pricing is inherently multicommodity: each origin--destination (OD) pair routes its
 own flow over the shared congested network, and tolls are designed against that coupled equilibrium. We extend
 the framework to the multicommodity \emph{logit stochastic user equilibrium} (SUE)~\citep{fisk1980,daganzo1977},
 in which route choice has a dispersion $\gamma>0$---a calibrated behavioural parameter, not a numerical
@@ -465,14 +463,14 @@ smoothing. The same near-linear machinery carries over: the multicommodity Newto
 block-Laplacian that a distribution-matrix block preconditioner solves in a handful of iterations, and the design
 adjoint again returns $\nabla_\tau\mathrm{TSTT}$ for all tolls in a single solve.
 
-\paragraph{Formulation.}
+\subsection{Formulation}
 With $K$ commodities, per-commodity arc flows $f^k\ge0$, total flow $f_a=\sum_k f^k_a$, and the shared cost
 $t_a(f_a)$, the entropic-regularized Beckmann program is
 \begin{equation}\label{eq:mcbeck}
   \min_{f^k\ge0}\ \sum_a T_a(f_a)+\gamma\sum_{a,k}f^k_a\bigl(\log f^k_a-1\bigr)
   \quad\text{s.t.}\quad B f^k=d^k,\quad k=1,\dots,K,
 \end{equation}
-with $T_a'=t_a$. Its stationarity conditions give the \emph{logit assignment}
+with $T_a'=t_a$. Its stationarity conditions give the logit assignment
 $f^k_a=\exp\!\bigl((g^k_a-t_a(f_a))/\gamma\bigr)$ with $g^k_a=(B^\top\phi^k)_a$: a per-arc softmax over commodities
 whose total $f_a$ solves a monotone scalar fixed point $\log f_a=\mathrm{logsumexp}_k(g^k_a/\gamma)-t_a(f_a)/\gamma$.
 As $\gamma\to0$ the model tends to deterministic user equilibrium; we solve at a fixed, calibrated $\gamma$.
@@ -498,10 +496,9 @@ $H_a^{-1}=\tfrac1\gamma\mathrm{diag}(f^k_a)-\tfrac{c_a}{\gamma^2}f_af_a^\top$, a
 $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 \end{proof}
 
-\paragraph{Near-linear solve.}
+\subsection{Near-Linear Solve}
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
-block diagonal---one near-linear solve per commodity (AC here, interchangeable with the default
-LAMG$+$; on the small, concentrated per-commodity Laplacians the two are equivalent). The rank-one commodity coupling is
+block diagonal---one near-linear (AC) solve per commodity. The rank-one commodity coupling is
 exactly Brandt's \emph{distribution matrix}~\citep{brandt1984}: in the mean/deviation basis over commodities it
 decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
 their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,

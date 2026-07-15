@@ -66,15 +66,18 @@ fb = zeros(net0.m); egrad!(net0, φb, d0, zeros(net0.m), fb)
         reldiff(fb, fo), okb, rrb, itb)
 
 # ---- head-to-head timing on families + real corpus (common target rtol; DNF quantified by relres) --
-@printf("%-22s %-8s %-9s | %-9s %-9s | %-9s %-9s %-9s %-8s\n",
-        "instance","n","m","ours(s)","fo(s)","fo_iters","fo_relres","slowdown","fo_conv")
+ resid(net,d,f) = min(norm(net.B*f .- d), norm(net.B*f .+ d)) / norm(d)
+@printf("%-22s %-8s %-9s | %-9s %-11s | %-9s %-9s %-11s %-8s\n",
+        "instance","n","m","ours(s)","ours_resid","fo(s)","fo_iters","fo_relres","fo_conv")
 function timepair(name, net, d)
-    DNLF.solve_flow(net, d, zeros(net.m); itol=3e-2, inmax=6)         # compile
-    to = @elapsed DNLF.solve_flow(net, d, zeros(net.m); itol=3e-2, inmax=6)
+    DNLF.solve_flow(net, d, zeros(net.m); tol=1e-9)                   # compile (accurate mode)
+    local fo
+    to = @elapsed ((_, fo, _, _) = DNLF.solve_flow(net, d, zeros(net.m); tol=1e-9))   # accurate: best attainable
+    ro = resid(net, d, fo)
     local itc, okc, rrc
     tf = @elapsed ((_, itc, okc, rrc) = solve_firstorder(net, d; rtol=1e-6, tbudget=300.0))
-    @printf("%-22s %-8d %-9d | %-9.2f %-9.2f | %-9d %-9.1e %-9s %-8s\n",
-            name, net.n, net.m, to, tf, itc, rrc, @sprintf("%.0fx", tf/max(to,1e-9)), okc)
+    @printf("%-22s %-8d %-9d | %-9.2f %-11.1e | %-9.2f %-9d %-11.1e %-8s\n",
+            name, net.n, net.m, to, ro, tf, itc, rrc, okc)
 end
 
 # synthetic irregular family (matches reproduce.jl's rand_net)

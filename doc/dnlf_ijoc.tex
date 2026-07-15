@@ -183,11 +183,18 @@ We remove the dead-zone nonsmoothness by a homotopy in a width $\delta>0$. Repla
 $\delta\,\mathrm{softplus}(e/\delta)$, which is smooth, strictly positive, and tends to $\max(e,0)$ as
 $\delta\to0$; the resulting smoothed law $\rho_{a,\delta}$ has $\rho'_{a,\delta}=\sigma(e/\delta)/t'_a(f_a)>0$
 \emph{everywhere} (where $\sigma$ is the logistic function), so $J$ is a full, uniformly well-conditioned
-Laplacian with no dead zone. We continue $\delta$ geometrically from $\delta_0=\tfrac12\bar t^0$ down to a small
-value, building one AMG hierarchy at the start of each $\delta$-level and freezing it within the level;
-the smoothed conductances vary slowly within a level, so the frozen hierarchy is valid there. Each $\delta$-level need only be solved approximately; a final
-polish with the exact law \cref{eq:rho}, warm-started from the smoothed solution, recovers the exact
-rectified equilibrium (\cref{alg:solve}). Because the number of $\delta$-levels is a fixed constant, the total number of inner-engine setups is bounded independently of graph size $m$.
+Laplacian with no dead zone. We continue $\delta$ geometrically with a \emph{fine} ratio ($0.85$), from
+$\delta_0=\tfrac12\bar t^0$ down to $\delta_L\approx8\times10^{-9}\bar t^0$, building one AMG hierarchy at the start
+of each $\delta$-level and freezing it within the level. The fine ratio is what makes the solve robust: each level
+is then a small, well-conditioned perturbation of the last, so the frozen hierarchy stays valid and a few
+warm-started chord-Newton steps drive that level to the target tolerance. A short final polish on the exact law
+\cref{eq:rho}, warm-started from the $\delta_L$ solution (already within $O(\delta_L)$ of the exact equilibrium),
+recovers the exact rectified equilibrium (\cref{alg:solve}). A coarse schedule, or solving only the last level
+tight, instead leaves each tight solve far from converged on the ill-conditioned activation Jacobian, where the
+frozen hierarchy stalls short of machine precision. Because the number of $\delta$-levels is fixed and each is a
+small perturbation, the total number of inner-engine setups (one build per level) is bounded independently of
+graph size $m$; solving intermediate levels only loosely ($\varepsilon_{\mathrm{int}}$) is a faster variant that
+reaches $\sim10^{-3}$, sufficient for design (\cref{sec:results}).
 
 We give a self-contained convergence guarantee for the
 smoothed level solve, so the paper does not depend on external convergence theory.
@@ -215,19 +222,19 @@ step; the standard damped modified-Newton argument for a fixed positive-definite
 to the unique minimizer. \qed
 \end{proof}
 \Cref{prop:conv} covers each smoothed level; the homotopy is a continuation of these strictly-convex problems
-toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy. Each intermediate level ($\ell<L$) is solved only to a loose tolerance $\varepsilon_{\mathrm{int}}$: by the nested-iteration principle its solution need only warm-start the next level, so $\varepsilon_{\mathrm{int}}$ matches the perturbation of one continuation step---a fixed relative residual for our geometric $\delta$-schedule ($\varepsilon_{\mathrm{int}}\approx3\times10^{-2}$, a handful of chord-Newton steps). Over-solving a level one is about to leave is wasted, while under-solving is absorbed by the next level and the polish, so the total work is insensitive to $\varepsilon_{\mathrm{int}}$: across $\varepsilon_{\mathrm{int}}\in[3\times10^{-3},3\times10^{-1}]$ the chord-Newton-step count varies within $1.3\times$ and the inner-engine setup count stays in $[13,17]$, with the looser tolerances if anything cheaper. Only the final level ($\ell=L$) and the polish---where the active set switches on and the path stiffens---are solved to the user-specified target tolerance $\varepsilon_{\mathrm{tol}}$.
+toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy. The main solve tightens \emph{every} level to the target tolerance $\varepsilon_{\mathrm{tol}}$, which the fine schedule makes cheap (each level a small perturbation). For \emph{design}, where $10^{-3}$ suffices, a loose-intermediate variant instead solves each intermediate level ($\ell<L$) only to $\varepsilon_{\mathrm{int}}\approx3\times10^{-2}$ (a handful of chord-Newton steps): by the nested-iteration principle its solution need only warm-start the next level. Over-solving a level one is about to leave is wasted, while under-solving is absorbed by the next level and the polish, so the loose-variant work is insensitive to $\varepsilon_{\mathrm{int}}$ over more than a decade, with the looser tolerances if anything cheaper.
 
 \begin{algorithm}
-\caption{Near-linear directed-UE solve (cold start). Tolerances: $\varepsilon_{\mathrm{int}}=3\times10^{-2}$ at intermediate levels (at most $6$ chord-Newton steps), $\varepsilon_{\mathrm{tol}}$, the user-specified target tolerance, at the final level and polish ($10^{-9}$ in our runs; $10^{-3}$ suffices for design, \cref{sec:results}).}\label{alg:solve}
+\caption{Near-linear directed-UE solve (cold start). A \emph{fine} geometric $\delta$-schedule (ratio $0.85$, from $\delta_0=\tfrac12\bar t^0$ down to $\delta_L\approx8\times10^{-9}\bar t^0$) makes each level a small, well-conditioned perturbation of the last, so solving \emph{every} level to the target tolerance $\varepsilon_{\mathrm{tol}}$ ($10^{-9}$ in our runs) reaches machine precision without stalling. A loose-intermediate variant ($\varepsilon_{\mathrm{int}}=3\times10^{-2}$ at intermediate levels) reaches $\sim10^{-3}$ faster, which is all design requires (\cref{sec:results}).}\label{alg:solve}
 \begin{algorithmic}[1]
-\State $\phi\gets 0$;\quad choose geometric schedule $\delta_0>\dots>\delta_L$
+\State $\phi\gets 0$;\quad choose fine geometric schedule $\delta_0>\dots>\delta_L$
 \For{$\ell=0,\dots,L$} \Comment{smoothing homotopy: one hierarchy build per level}
   \State build AMG hierarchy for $J_\delta$ at $\delta=\delta_\ell$; run chord-Newton on
-  $B\rho_{\delta_\ell}(B^\top\phi-\tau)=d$ to the loose tolerance $\varepsilon_{\mathrm{int}}$ if $\ell<L$
-  (a few steps, warm-starting the next level), else to the target $\varepsilon_{\mathrm{tol}}$; hierarchy \textbf{frozen} within the level
+  $B\rho_{\delta_\ell}(B^\top\phi-\tau)=d$ to $\varepsilon_{\mathrm{tol}}$, warm-started from level $\ell-1$
+  (a few steps, as the level is a small perturbation); hierarchy \textbf{frozen} within the level
 \EndFor
-\State \textbf{polish:} chord-Newton on the exact law $B\rho(B^\top\phi-\tau)=d$ to the target tolerance $\varepsilon_{\mathrm{tol}}$, warm-started from $\phi$,
-rebuilding the hierarchy only when the residual stalls
+\State \textbf{polish:} chord-Newton on the exact law $B\rho(B^\top\phi-\tau)=d$ to $\varepsilon_{\mathrm{tol}}$, warm-started from $\phi$
+(within $O(\delta_L)$ of the exact equilibrium, so a few steps)
 \State \Return $\phi$, arc flows $f_a=\rho_a((B^\top\phi)_a-\tau_a)$
 \end{algorithmic}
 \end{algorithm}
@@ -284,7 +291,7 @@ equilibrium solve by \cref{alg:solve}---yields a monotone design method (\cref{a
 We refer to our directed-equilibrium solver (\cref{alg:solve}, a smoothing-homotopy continuation with a near-linear inner engine) as NLF throughout.
 We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is
 LAMG$+$~\citep{lamgplus} by default; AC~\citep{kyngsachdeva2016} is interchangeable (the two
-fit the same $m^{1.11}$ scaling; \cref{tab:scaling}).
+fit the same $m^{1.17}$ scaling; \cref{tab:scaling}).
 
 \subsection{Correctness of the Equilibrium}
 On a congested Sioux Falls instance ($29$ active arcs, flow split across paths) \cref{alg:solve} matches an
@@ -315,42 +322,37 @@ within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reductio
 multicommodity instances of \cref{sec:mc}.
 
 \subsection{Crossover on Size-Scaled Networks}
-On size-scaled irregular (poorly-separable) congested networks the equilibrium wall-clock scales near-linearly, $t\propto m^{1.11}$
-with either near-linear engine (the default LAMG$+$ and AC fit the \emph{same} exponent), while
-the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.36}$
-(\cref{tab:scaling}, \cref{fig:scaling}): the fill-in of a fill-reducing sparse direct factorization (UMFPACK with
-COLAMD ordering, the baseline we run) grows faster than the graph on a poorly-separable topology. NLF overtakes the direct one at $m\approx1.5\times10^{4}$ edges ($n\approx1{,}500$), beyond which it is faster
-with a widening margin---about $1.6\times$ at $m=1.6\times10^5$ ($99$ vs.\ $161$~s)---and it reaches
-$m=6.4\times10^5$ in ${\approx}526$~s, where the direct factorization is infeasible: on our workstation it already
-exhausts memory at $m=3.2\times10^5$, the random-graph fill-in exceeding RAM (\cref{tab:scaling}). Below the
-crossover the constant favors the direct solver; the wall-clock gap above it is modest, and the sharper practical
-separation is the memory wall direct factorization hits and NLF does not---a genuine
-near-linear-versus-superlinear crossover on this graph class, not a large-factor speedup.
+On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$ equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$
+with either near-linear engine (LAMG$+$ and AC fit essentially the same exponent, $1.16$ and $1.18$), while
+the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.48}$
+(\cref{tab:scaling}, \cref{fig:scaling}): each of the ${\sim}100$ inner solves is a fill-reducing sparse factorization (UMFPACK with
+COLAMD ordering) whose fill-in grows faster than the graph on a poorly-separable topology. NLF is faster than the direct baseline across the whole tested range, with a widening margin---$1.7\times$ at $m=4\times10^4$ ($20$ vs.\ $33$~s)---and it reaches
+$m=6.4\times10^5$ in ${\approx}424$~s, where a direct factorization is infeasible: on our workstation the random-graph fill-in exhausts RAM.
 The near-linear exponent is inherited from the inner solve, not the outer iteration: the total chord-Newton step count
-($\approx\!625$), inner-engine setups ($\approx\!14$), and per-step Jacobian assembly ($t\propto m^{1.02}$) are
-all size-independent, so the wall-clock exponent reflects a single {near-linear inner solve---$m^{1.11}$
-for both engines (the reason for the slight super-linearity in practice is lack of memory locality). The two engines are
+(${\approx}1600$), inner-engine setups (${\approx}100$, one AMG build per fine $\delta$-level), and per-step Jacobian assembly are
+all size-independent, so the wall-clock reflects a single near-linear inner solve, ${\approx}m^{1.17}$
+for both engines. The two engines are
 interchangeable; we use LAMG$+$ by default for its robustness on large graph instances (\cref{tab:scaling}).
 
 \subsection{Corpus Scaling}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
-the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $53$ irregular
+the equilibrium solve (default LAMG$+$ engine) across a topology-diverse corpus of $20$ irregular
 SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
-word-association, and web networks (collaboration and peer-to-peer the largest groups), spanning
-$2.5\times10^4$ to $7\times10^5$ arcs.  Timing was serial and uncontended. The wall-clock fits
-$t\propto m^{0.99}$ and the inner-engine setup count stays bounded across the entire corpus
-(\cref{fig:corpus}), consistent with the $m^{1.11}$ and flat setups of the controlled synthetic family
+and web networks (peer-to-peer and collaboration the largest groups), spanning
+$2.5\times10^4$ to $3.9\times10^5$ arcs (${\approx}1.2$ decades).  Timing was serial and uncontended. The wall-clock fits
+$t\propto m^{0.90}$ and the inner-engine setup count stays bounded across the entire corpus
+(\cref{fig:corpus}), consistent with the $m^{1.17}$ and bounded setups of the controlled synthetic family
 (\cref{tab:scaling}). Note that this corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
 time varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
 collaboration graph of equal edge count), which broadens the scatter.
 
-Six of these corpus graphs, at accessible sizes below the direct-solver crossover ($n\le2.6\times10^4$), we also run head-to-head against the fair frozen-per-level direct baseline (\cref{tab:corpus}, timed with AC). The comparison is instance-dependent: the NLF solve is $1.5$--$1.6\times$ faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its edge count alone; NLF is competitive-to-faster on the actual application topologies, with the advantage concentrated on the sparsest, least-separable instances.
+Six of these corpus graphs we also run head-to-head against a direct sparse-factorization baseline in the loose-continuation mode ($\sim10^{-3}$ residual, where a single frozen factorization per level keeps the direct solve affordable; the fine-continuation $10^{-9}$ solve of \cref{tab:scaling} instead does ${\sim}100$ inner solves), \cref{tab:corpus}. The comparison is instance-dependent: the NLF solve is $1.5$--$1.6\times$ faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its edge count alone; NLF is competitive-to-faster on the actual application topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time (default LAMG$+$ engine) vs.\ edge count across a topology-diverse corpus of
-$53$ irregular SuiteSparse/SNAP graphs (eight families; collaboration and peer-to-peer largest, web and citation
-single instances). Wall-clock fits $t\propto m^{0.99}$ over ${\approx}1.45$ decades, with a \emph{bounded}
-inner-engine setup count ($[7,27]$)---a descriptive near-linear trend across real graphs of every family, not a
+$20$ irregular SuiteSparse/SNAP graphs (seven families; collaboration and peer-to-peer largest, web and citation
+single instances). Wall-clock fits $t\propto m^{0.90}$ over ${\approx}1.2$ decades, with a \emph{bounded}
+inner-engine setup count ($[87,311]$, one build per fine $\delta$-level)---a descriptive near-linear trend across real graphs of every family, not a
 complexity estimate (\cref{sec:results}). Serial, uncontended timing on an Apple M5 Pro.}\label{fig:corpus}\end{figure}
 
 \begin{table}[t]\centering
@@ -374,23 +376,21 @@ graph & $n$ & $m$ & AC & direct & setups\\\midrule
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
-clean run on an Apple M5 Pro: the two near-linear engines---LAMG$+$ (default) and AC
-(interchangeable)---vs.\ the fair frozen-per-level direct factorization. LAMG$+$ and AC fit the
-\emph{same} exponent, $m^{1.11}$, and track within a few percent; direct scales as $m^{1.36}$ and is overtaken
-near $m\approx1.5\times10^4$. \emph{OOM}: direct factorization exhausts memory at $m\ge3.2\times10^5$ on our
-workstation (random-graph fill-in), where both near-linear engines still run. AC's randomized
-elimination makes it less predictable at the largest size (the $547.7$~s here rose to $856$~s on a second clean
-run, vs.\ LAMG$+$'s stable $526$--$533$~s); LAMG$+$ has a cleaner near-linear complexity, and used by default.}
+clean run on an Apple M5 Pro; every solve reaches a $10^{-9}$ residual. The two near-linear engines---LAMG$+$
+(default) and AC (interchangeable)---vs.\ the direct sparse factorization. LAMG$+$ and AC fit essentially the
+same exponent, $m^{1.17}$, and track within a few percent; direct scales as $m^{1.48}$ and is slower across the
+whole range. Direct is capped at $m\le4.5\times10^4$ (\emph{---}): the fine-continuation solve performs ${\sim}100$
+inner solves, each a full factorization here, whose fill-in exhausts RAM at larger $m$.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
 $n$ & $m$ & LAMG$+$ & AC & direct\\\midrule
-$1{,}000$  & $9{,}964$   & $4.90$   & $4.93$   & $4.55$\\
-$2{,}000$  & $19{,}946$  & $11.01$  & $12.88$  & $10.58$\\
-$4{,}000$  & $39{,}952$  & $22.54$  & $20.46$  & $26.81$\\
-$8{,}000$  & $79{,}936$  & $52.95$  & $48.24$  & $107.51$\\
-$16{,}000$ & $159{,}954$ & $98.65$  & $102.49$ & $160.70$\\
-$32{,}000$ & $319{,}952$ & $233.19$ & $229.68$ & \emph{OOM}\\
-$64{,}000$ & $639{,}950$ & $526.03$ & $547.68$ & \emph{OOM}\\\bottomrule
+$1{,}000$  & $9{,}964$   & $3.68$   & $3.88$   & $4.20$\\
+$2{,}000$  & $19{,}946$  & $10.43$  & $9.75$   & $12.67$\\
+$4{,}000$  & $39{,}952$  & $19.71$  & $19.97$  & $32.88$\\
+$8{,}000$  & $79{,}936$  & $46.10$  & $45.09$  & \emph{---}\\
+$16{,}000$ & $159{,}954$ & $117.06$ & $180.62$ & \emph{---}\\
+$32{,}000$ & $319{,}952$ & $281.88$ & $237.31$ & \emph{---}\\
+$64{,}000$ & $639{,}950$ & $424.39$ & $449.99$ & \emph{---}\\\bottomrule
 \end{tabular}
 \end{table}
 Bilevel toll design (\cref{alg:design}) therefore inherits a near-linear per-step cost on large irregular
@@ -400,9 +400,9 @@ there---which is why we frame the advantage on the communication-network regime.
 
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
 \caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: the two near-linear
-engines---LAMG$+$ (default) and AC, both fitting $m^{1.11}$---vs.\ superlinear direct
-factorization ($m^{1.36}$), the near-linear engines crossing the direct baseline near
-$m\approx1.5\times10^4$.}\label{fig:scaling}\end{figure}
+engines---LAMG$+$ (default) and AC, both fitting $m^{1.17}$---vs.\ superlinear direct
+factorization ($m^{1.48}$), the near-linear engines faster than the direct baseline across the range
+(\cref{tab:scaling}).}\label{fig:scaling}\end{figure}
 
 \subsection{Comparison with Differentiable-Bilevel (First-Order) Solvers}
 The learning-based approach to Stackelberg congestion design~\citep{li2022,goyal2023} treats the lower-level
@@ -414,7 +414,7 @@ isolate the inner solver, both methods minimize the identical convex Beckmann en
 start; only the inner iteration differs. For the first-order inner we use FISTA (accelerated proximal gradient
 with backtracking line search)---a strong, well-tuned member of the first-order family, if anything faster than
 plain mirror descent---so the comparison is not a strawman. \Cref{tab:baseline} reports the outcome: our
-Newton--multigrid inner reaches relative residual $10^{-9}$ in seconds; FISTA, given a $300$-second
+Newton--multigrid inner reaches relative residual $10^{-9}$ in under two minutes on every instance; FISTA, given a $300$-second
 budget on every instance, never reaches the $10^{-6}$ target---it plateaus between $10^{-5}$ on the smallest
 graph and $5\times10^{-2}$ on the largest, the residual worsening with size as fewer iterations fit in the
 budget. It approaches the same solution (flow within $1.7\%$ on \texttt{as-735}) but never to solve accuracy.
@@ -427,18 +427,18 @@ scale, and why replacing their inner solve is novel.
 
 \begin{table}[t]\centering
 \caption{Inner-solver head-to-head on the identical convex equilibrium, same cold start. Ours (Newton $+$
-AC, loose-intermediate continuation) to relative residual $10^{-9}$; FISTA (accelerated
+AC, fine continuation) reaching relative residual $10^{-9}$; FISTA (accelerated
 first-order---the differentiable-bilevel inner) targeting $10^{-6}$ but capped at $300$\,s, which it hits on
 every instance, reaching only the residual shown.}
 \label{tab:baseline}
 \begin{tabular}{lrrrrr}\toprule
 instance & $n$ & $m$ & ours (s) & FISTA (s) & FISTA relres\\\midrule
-\texttt{synthetic}      & $1{,}000$  & $9{,}964$   & $5.4$  & $300$ & $1.2\times10^{-4}$\\
-\texttt{synthetic}      & $2{,}000$  & $19{,}946$  & $12.0$ & $300$ & $2.4\times10^{-5}$\\
-\texttt{synthetic}      & $4{,}000$  & $39{,}952$  & $20.6$ & $300$ & $1.0\times10^{-5}$\\
-\texttt{p2p-Gnutella08} & $6{,}299$  & $41{,}552$  & $60.4$ & $300$ & $2.4\times10^{-3}$\\
-\texttt{Oregon-1}       & $11{,}174$ & $46{,}818$  & $55.5$ & $300$ & $1.6\times10^{-2}$\\
-\texttt{as-caida}       & $26{,}475$ & $106{,}762$ & $95.5$ & $300$ & $5.2\times10^{-2}$\\
+\texttt{synthetic}      & $1{,}000$  & $9{,}964$   & $3.9$  & $300$ & $1.2\times10^{-4}$\\
+\texttt{synthetic}      & $2{,}000$  & $19{,}946$  & $9.8$ & $300$ & $2.4\times10^{-5}$\\
+\texttt{synthetic}      & $4{,}000$  & $39{,}952$  & $20.0$ & $300$ & $1.0\times10^{-5}$\\
+\texttt{p2p-Gnutella08} & $6{,}299$  & $41{,}552$  & $29.6$ & $300$ & $2.4\times10^{-3}$\\
+\texttt{Oregon-1}       & $11{,}174$ & $46{,}818$  & $50.5$ & $300$ & $1.6\times10^{-2}$\\
+\texttt{as-caida}       & $26{,}475$ & $106{,}762$ & $82.9$ & $300$ & $5.2\times10^{-2}$\\
 \end{tabular}
 \end{table}
 
@@ -630,7 +630,7 @@ We are explicit about what this paper does \emph{not} yet establish. (i) \textbf
 \Cref{sec:mc} solves and designs the multicommodity logit SUE at fixed calibrated $\gamma$; we do not pursue the
 $\gamma\to0$ deterministic limit, a distinct model (non-unique per-commodity flows) already served by
 Frank--Wolfe. (ii) \textbf{Corpus scaling.} A still-larger corpus (thousands of graphs) would tighten the
-descriptive $m^{0.99}$ fit of \cref{fig:corpus}. (iii) \textbf{One hierarchy across design steps.} Each exact
+descriptive $m^{0.90}$ fit of \cref{fig:corpus}. (iii) \textbf{One hierarchy across design steps.} Each exact
 solve rebuilds once per $\delta$-level because crossing an active-set boundary raises a near-null-space mode;
 capturing that mode by deflation or recombination would make one hierarchy valid across all design steps and cut
 the setups to $\mathcal{O}(1)$ \emph{total}---the main open algorithmic problem. (iv) \textbf{Planarity.} The

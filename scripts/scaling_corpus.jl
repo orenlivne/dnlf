@@ -33,7 +33,7 @@ function corpus_run()
         net.m > 1_200_000 && (println("  (skip $g, m=$(net.m))"); continue)
         warmed || (solve_loose(net, d; inner=:multigrid); warmed = true)          # compile once
         Hp = (Ref{Any}(nothing),Ref(1.0),Ref(false),Ref(0),Ref(1.0))
-        t = @elapsed DNLF.solve_flow(net, d, zeros(net.m); inner=:multigrid, itol=3e-2, inmax=6, Hpack=Hp)
+        t = @elapsed DNLF.solve_flow(net, d, zeros(net.m); inner=:multigrid, Hpack=Hp)   # accurate (fine schedule) → 1e-9
         b = Hp[4][]
         push!(ms, net.m); push!(ts, t); push!(bs, b); push!(names, g)
         @printf("%-26s %-9d %-10.2f %-7d\n", g, net.m, t, b); flush(stdout)

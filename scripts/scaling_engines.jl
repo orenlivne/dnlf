@@ -21,7 +21,7 @@ function rand_net(n; deg=5, seed=1)                       # identical generator 
     dd.-=sum(dd)/n; dd.*=(3000.0*n/(sum(abs,dd)/2)); nt,dd
 end
 
-solve(net,d;inner) = DNLF.solve_flow(net,d,zeros(net.m); inner=inner, itol=3e-2, inmax=6)
+solve(net,d;inner) = DNLF.solve_flow(net,d,zeros(net.m); inner=inner)   # accurate mode (fine schedule) → true 1e-9
 
 function loglogfit(ms, ts)                                # centered least-squares log-log slope
     x = log10.(ms); y = log10.(ts); xm = sum(x)/length(x); ym = sum(y)/length(y)
@@ -29,18 +29,23 @@ function loglogfit(ms, ts)                                # centered least-squar
 end
 
 NS = (1000, 2000, 4000, 8000, 16000, 32000, 64000)        # m up to ~6.4e5 (same family as Table 1)
-LUCAP = 160_000                                           # direct factorization OOMs on random fill-in beyond
+LUCAP = 45_000                                            # direct: the fine-continuation solve does ~100 inner
+                                                          # solves, each an LU factorization here, so we cap direct
+                                                          # at the small, crossover-relevant sizes (near-linear runs full range)
 
+let n0 = rand_net(1000)                                   # compile each engine once (not an untimed pre-solve per size)
+    solve(n0[1],n0[2]; inner=:multigrid); solve(n0[1],n0[2]; inner=:approxchol); solve(n0[1],n0[2]; inner=:lu)
+end
 ms=Float64[]; tlm=Float64[]; tac=Float64[]; mlu=Float64[]; tlu=Float64[]
 @printf("%-8s %-9s | %-11s %-11s %-11s\n","n","m","LAMG+","approxChol","direct")
 for n in NS
     net,d = rand_net(n)
-    solve(net,d; inner=:multigrid);  tm = @elapsed solve(net,d; inner=:multigrid)
-    solve(net,d; inner=:approxchol); ta = @elapsed solve(net,d; inner=:approxchol)
+    tm = @elapsed solve(net,d; inner=:multigrid)
+    ta = @elapsed solve(net,d; inner=:approxchol)
     push!(ms,net.m); push!(tlm,tm); push!(tac,ta)
     tl = NaN
     if net.m <= LUCAP
-        solve(net,d; inner=:lu); tl = @elapsed solve(net,d; inner=:lu)
+        tl = @elapsed solve(net,d; inner=:lu)
         push!(mlu,net.m); push!(tlu,tl)
     end
     @printf("%-8d %-9d | %-11.2f %-11.2f %-11s\n", net.n, net.m, tm, ta, isnan(tl) ? "OOM" : @sprintf("%.2f",tl))

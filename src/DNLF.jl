@@ -192,6 +192,49 @@ end
 # Default δ-homotopy schedule: fractions of the mean free-flow cost, geometric from smooth to sharp.
 const DFRACS = (0.5, 0.25, 0.12, 0.06, 0.03, 0.015, 0.008, 0.004, 0.002, 0.001, 5e-4, 2e-4, 1e-4)
 
+# ---------------- semismooth Newton polish (exact dead-zone law) ----------------
+_zm!(v) = (v .-= sum(v) / length(v); v)
+_lapclean(J) = (o = J - spdiagm(0 => diag(J)); o = (o + o') / 2; dropzeros!(o); o + spdiagm(0 => -vec(sum(o, dims = 2))))
+# Preconditioned CG for the SPD singular Laplacian Newton system J δ = rhs (rhs zero-mean, min-norm solution).
+function _pcg(Jmv, rhs, P; tol = 1e-8, maxit = 200)
+    x = zeros(length(rhs)); r = _zm!(copy(rhs)); z = _zm!(P(r)); p = copy(z); rz = dot(r, z); bn = max(norm(rhs), 1e-30)
+    for _ in 1:maxit
+        Jp = _zm!(Jmv(p)); pJp = dot(p, Jp); pJp <= 0 && break
+        α = rz / pJp; x .+= α .* p; r .-= α .* Jp; _zm!(r); norm(r) <= tol * bn && break
+        z = _zm!(P(r)); rzn = dot(r, z); β = rzn / rz; rz = rzn; p .= z .+ β .* p
+    end
+    _zm!(x)
+end
+"""
+    ssn_polish!(x, Bn, law!, d; build_solver, tol, nmax, setups) -> steps
+
+Semismooth Newton polish of the exact rectified equilibrium `B ρ(Bᵀφ−τ)=d`. Each step forms the generalized
+Jacobian `J = B diag(ρ') Bᵀ` (dead arcs floored for an SPD system), solves `J δ = −F` by CG preconditioned with
+a fresh `build_solver` factorization, and globalizes with a merit `½‖F‖²` Armijo line search — the correct
+globalizer for the dead-zone active-set transitions, where the plain energy/residual chord iteration stalls
+short of machine precision. Reaches `tol` in a graph-size-independent number of steps.
+"""
+function ssn_polish!(x, Bn, law!, d; build_solver, tol = 1e-9, nmax = 150, cgtol = 1e-8, setups = Ref(0))
+    m = size(Bn, 2); f = zeros(m); dρ = zeros(m); bnrm = max(norm(d), 1.0); steps = 0
+    for it in 1:nmax
+        steps = it
+        g = Bn' * x; law!(f, dρ, g); F = Bn * f .- d; nr = norm(F)
+        nr < tol * bnrm && break
+        dρf = max.(dρ, 1e-12 * maximum(dρ)); SC = maximum(dρf)
+        P = build_solver(_lapclean((Bn * Diagonal(dρf) * Bn') ./ SC)); setups[] += 1
+        Jmv = v -> Bn * (dρf .* (Bn' * v))
+        δ = _pcg(Jmv, -Vector(F), P; tol = cgtol)
+        ψ0 = 0.5 * nr^2; τ = 1.0; ok = false
+        for _ in 1:50
+            xt = _zm!(x .+ τ .* δ); g2 = Bn' * xt; law!(f, dρ, g2); Ft = Bn * f .- d
+            if 0.5 * dot(Ft, Ft) <= ψ0 * (1 - 2e-4 * τ); copyto!(x, xt); ok = true; break; end
+            τ *= 0.5
+        end
+        ok || break
+    end
+    steps
+end
+
 """
     solve_flow(N, d, tolls; inner=:approxchol, init=nothing, Hpack=nothing, ...) -> (φ, f, steps, setups)
 
@@ -205,7 +248,7 @@ Every linear solve is delegated to NLF's `newton_flow!` + near-linear engine (`:
 """
 function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = nothing,
                     tol = 1e-9, nmax = 300, anderson = 8, Hpack = nothing, dfracs = DFRACS,
-                    refresh = 0.25, itol = nothing, inmax = 6)
+                    refresh = 0.25, itol = nothing, inmax = 6, polish = :ssn)
     Bn   = -N.B                                          # (Bₙᵀx)ₐ = φ_init − φ_term  (rho's convention)
     bs   = inner === :approxchol ? approxchol_builder() :
            inner === :lu         ? lu_builder()          : nothing
@@ -226,20 +269,31 @@ function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = no
         for (i, fr) in enumerate(dfracs)
             H[] = nothing
             last = (i == length(dfracs))
-            ltol  = (loose && !last) ? itol  : tol
-            lnmax = (loose && !last) ? inmax : nmax
+            # With the semismooth polish, the polish does the final tight solve, so keep EVERY continuation
+            # level loose (the legacy chord path tightens the last level instead, since it has no robust polish).
+            tight_here = last && (polish !== :ssn)
+            ltol  = (loose && !tight_here) ? itol  : tol
+            lnmax = (loose && !tight_here) ? inmax : nmax
             res = newton_flow!(x, Bn, smoothed_law(N, tolls, fr*tmean), d; inner = isym,
                      build_solver = bs, tol = ltol, nmax = lnmax, anderson = anderson, refresh = 1e9,
                      H = H, SC = SC, ST = ST, setups = setups, GG = GG)
             tot += res.steps
         end
     end
-    # Polish (cold) / warm solve: exact rectified law with Armijo energy. Accurate mode rebuilds adaptively
-    # (→ machine precision); loose mode keeps the hierarchy frozen (→ ≈`itol`, "good enough" for design/scaling).
-    res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
-             energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
-             refresh = loose ? 1e9 : refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
-    tot += res.steps
+    # Polish (cold) / warm solve. `:ssn` (default): semismooth Newton on the exact rectified law, globalized by a
+    # merit `½‖F‖²` line search and an exact factorization inner step — reaches machine precision on the nonsmooth
+    # dead-zone law in a size-independent step count, where the legacy frozen-chord polish stalls. The inner
+    # factorization is approxChol (near-linear); the :lu direct baseline uses LU so it stays purely direct.
+    # `:chord` restores the legacy energy-Armijo frozen-hierarchy polish.
+    if polish === :ssn && init === nothing
+        pbs = inner === :lu ? lu_builder() : approxchol_builder()
+        tot += ssn_polish!(x, Bn, rectified_law(N, tolls), d; build_solver = pbs, tol = tol, setups = setups)
+    else
+        res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
+                 energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
+                 refresh = loose ? 1e9 : refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
+        tot += res.steps
+    end
     f = zeros(N.m)
     @inbounds for a in 1:N.m; f[a] = rho(N, a, (x[N.ini[a]] - x[N.ter[a]]) - tolls[a])[1]; end
     x, f, tot, setups[]

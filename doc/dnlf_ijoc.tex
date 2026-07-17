@@ -476,10 +476,12 @@ $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 
 \subsection{Near-Linear Solve}
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
-block diagonal---one near-linear (AC) solve per commodity. The rank-one commodity coupling is
-exactly Brandt's \emph{distribution matrix}~\citep{brandt1984}: in the mean/deviation basis over commodities it
-decouples when the per-commodity Laplacians coincide, so the block preconditioner's rate is governed only by
-their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
+block diagonal---one near-linear (AC) solve per commodity. The block diagonal misses only the rank-one coupling
+of \cref{eq:mcjac}, through which the commodities interact solely via the shared total flow $f_a=\sum_k f^k_a$
+that sets each arc's cost---Brandt's \emph{distribution matrix}~\citep{brandt1984}. In the commodity
+mean/deviation basis this coupling sits on the single mean mode: when the per-commodity Laplacians coincide the
+$K-1$ deviation modes decouple from it exactly, leaving only that one mode for preconditioned CG to resolve; when
+the Laplacians differ the deviations mix in as well, at a rate set only by their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
 grows only logarithmically in $K$, and is independent of graph size $n$ at the operating dispersion
 $\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, and the equilibrium solve is
 near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor

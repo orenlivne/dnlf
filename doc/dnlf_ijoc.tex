@@ -487,7 +487,7 @@ $\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, 
 near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor
 ($10^{-12}$ of its maximum weight) so it stays connected and the AC factorization remains
 applicable even to a commodity that concentrates on few arcs; a pinned direct solve is retained only as a
-fallback for the rare inputs on which the multigrid factorization throws. The count is single digit at and near
+fallback for the rare inputs on which the approximate-Cholesky factorization throws. The count is single digit at and near
 equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); only the
 \emph{cold} forward solve at small $\gamma$, far from equilibrium where per-commodity flows concentrate and the
 blocks become high-contrast, is expensive, and that regime is entered only as one leaves the logit-SUE model for

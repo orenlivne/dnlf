@@ -222,7 +222,7 @@ step; the standard damped modified-Newton argument for a fixed positive-definite
 to the unique minimizer. \qed
 \end{proof}
 \Cref{prop:conv} covers each smoothed level; the homotopy is a continuation of these strictly-convex problems
-toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy. The main solve tightens \emph{every} level to the target tolerance $\varepsilon_{\mathrm{tol}}$, which the fine schedule makes cheap (each level a small perturbation). For \emph{design}, where $10^{-3}$ suffices, a loose-intermediate variant instead solves each intermediate level ($\ell<L$) only to $\varepsilon_{\mathrm{int}}\approx3\times10^{-2}$ (a handful of chord-Newton steps): by the nested-iteration principle its solution need only warm-start the next level. Over-solving a level one is about to leave is wasted, while under-solving is absorbed by the next level and the polish, so the loose-variant work is insensitive to $\varepsilon_{\mathrm{int}}$ over more than a decade, with the looser tolerances if anything cheaper.
+toward $\delta\to0$, and the polish is a warm-started solve of the exact (piecewise-smooth, still convex) energy. The main solve tightens \emph{every} level to the target tolerance $\varepsilon_{\mathrm{tol}}$, which the fine schedule makes cheap (each level a small perturbation). For \emph{design}, where $10^{-3}$ suffices, a loose-intermediate variant instead solves each intermediate level ($\ell<L$) only to $\varepsilon_{\mathrm{int}}\approx3\times10^{-2}$ (a handful of chord-Newton steps): by the nested-iteration principle its solution need only warm-start the next level. Over-solving a level one is about to leave is wasted, while under-solving is absorbed by the next level and the polish, so the loose-variant work is insensitive to $\varepsilon_{\mathrm{int}}$ over more than a decade, and looser tolerances are cheaper.
 
 \begin{algorithm}
 \caption{Near-linear directed-UE solve (cold start). A \emph{fine} geometric $\delta$-schedule (ratio $0.85$, from $\delta_0=\tfrac12\bar t^0$ down to $\delta_L\approx8\times10^{-9}\bar t^0$) makes each level a small, well-conditioned perturbation of the last, so solving \emph{every} level to the target tolerance $\varepsilon_{\mathrm{tol}}$ ($10^{-9}$ in our runs) reaches machine precision without stalling. A loose-intermediate variant ($\varepsilon_{\mathrm{int}}=3\times10^{-2}$ at intermediate levels) reaches $\sim10^{-3}$ faster, which is all design requires (\cref{sec:results}).}\label{alg:solve}
@@ -335,42 +335,22 @@ interchangeable; we use LAMG$+$ by default for its robustness on large graph ins
 \subsection{Corpus Scaling}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve across a topology-diverse corpus of $20$ irregular
-SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social, citation,
-and web networks (peer-to-peer and collaboration the largest groups), spanning
+SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social,
+wiki-voting, and messaging networks (peer-to-peer and collaboration the largest groups), spanning
 $2.5\times10^4$ to $3.9\times10^5$ arcs (${\approx}1.2$ decades).  Timing was serial and uncontended. The wall-clock fits
 $t\propto m^{0.90}$ and the inner-engine setup count stays bounded across the entire corpus
 (\cref{fig:corpus}), consistent with the $m^{1.17}$ and bounded setups of the controlled synthetic family
 (\cref{tab:scaling}). Note that this corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
-time varies several-fold with separator structure (a word-association graph takes ${\sim}3\times$ a
-collaboration graph of equal edge count), which broadens the scatter.
+time varies several-fold with separator structure (a peer-to-peer overlay takes ${\sim}2\times$ an
+autonomous-system graph of equal edge count), which broadens the scatter.
 
-Six of these corpus graphs we also run head-to-head against a direct sparse-factorization baseline in the loose-continuation mode ($\sim10^{-3}$ residual, where a single frozen factorization per level keeps the direct solve affordable; the fine-continuation $10^{-9}$ solve of \cref{tab:scaling} instead does ${\sim}100$ inner solves), \cref{tab:corpus}. The comparison is instance-dependent: the NLF solve is $1.5$--$1.6\times$ faster on the sparsest overlay/AS graphs (\texttt{p2p-Gnutella08}, \texttt{Oregon-1}), essentially tied on \texttt{as-caida}, and slower on the smallest (\texttt{as-735}) and the denser \texttt{p2p-Gnutella24}, where a good fill-reducing ordering still wins. Which solver wins is set by the graph's separator structure, not its edge count alone; NLF is competitive-to-faster on the actual application topologies, with the advantage concentrated on the sparsest, least-separable instances.
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time vs.\ edge count across a topology-diverse corpus of
-$20$ irregular SuiteSparse/SNAP graphs (seven families; collaboration and peer-to-peer largest, web and citation
-single instances). Wall-clock fits $t\propto m^{0.90}$ over ${\approx}1.2$ decades, with a \emph{bounded}
+$20$ irregular SuiteSparse/SNAP graphs (seven families; peer-to-peer and collaboration largest, signed-social
+and messaging single instances). Wall-clock fits $t\propto m^{0.90}$ over ${\approx}1.2$ decades, with a \emph{bounded}
 inner-engine setup count (in $[87,311]$, one build per fine $\delta$-level)---a descriptive near-linear trend across real graphs of every family, not a
 complexity estimate (\cref{sec:results}).}\label{fig:corpus}\end{figure}
-
-\begin{table}[t]\centering
-\caption{Equilibrium solve time (s) on real irregular networks (SuiteSparse/SNAP, largest connected
-component): Internet AS graphs and P2P overlays. Near-linear AC vs.\ the fair
-frozen-per-level direct baseline; inner-engine \emph{setups} stay size-independent ($14$--$20$ across the corpus).
-Single run on one workstation; AC is randomized, so wall-clock and setup counts vary
-$\pm$($10$--$30$)\% run to run; the qualitative winner per graph is still stable.
-Dash: direct capped at $m>1.5\times10^5$.}
-\label{tab:corpus}
-\begin{tabular}{lrrrrr}\toprule
-graph & $n$ & $m$ & AC & direct & setups\\\midrule
-\texttt{as-735} (AS)         & $6{,}474$  & $25{,}144$  & $35.9$  & $20.5$  & $18$\\
-\texttt{p2p-Gnutella08}      & $6{,}299$  & $41{,}552$  & $35.4$  & $53.6$  & $14$\\
-\texttt{Oregon-1} (AS)       & $11{,}174$ & $46{,}818$  & $39.7$  & $61.7$  & $20$\\
-\texttt{as-caida} (AS)       & $26{,}475$ & $106{,}762$ & $162.0$ & $163.8$ & $18$\\
-\texttt{p2p-Gnutella24}      & $26{,}498$ & $130{,}718$ & $262.2$ & $148.0$ & $20$\\
-\texttt{ca-HepPh}            & $11{,}204$ & $235{,}238$ & $163.4$ & ---     & $15$\\\bottomrule
-\end{tabular}
-\end{table}
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
@@ -410,8 +390,8 @@ toy-scale and does not run on the $10^4$--$10^5$-node irregular graphs here, so 
 component---a first-order inner equilibrium solve---in the same environment and on the same instances. To
 isolate the inner solver, both methods minimize the identical convex Beckmann energy from the same cold
 start; only the inner iteration differs. For the first-order inner we use FISTA (accelerated proximal gradient
-with backtracking line search)---a strong, well-tuned member of the first-order family, if anything faster than
-plain mirror descent---so the comparison is not a strawman. \Cref{tab:baseline} reports the outcome: our
+with backtracking line search)---a strong, well-tuned member of the first-order family, and faster than
+plain mirror descent---so the comparison is not a strawman. The results are in \Cref{tab:baseline}. Our
 Newton inner reaches relative residual $10^{-9}$ in under two minutes on every instance; FISTA, given a $300$-second
 budget on every instance, never reaches the $10^{-6}$ target---it plateaus between $10^{-5}$ on the smallest
 graph and $5\times10^{-2}$ on the largest, the residual worsening with size as fewer iterations fit in the
@@ -443,7 +423,7 @@ instance & $n$ & $m$ & ours (s) & FISTA (s) & FISTA relres\\\midrule
 \subsection{Reproducibility}
 All code, unit tests, and reproduction drivers are available at \url{https://github.com/orenlivne/dnlf}; the
 repository regenerates every table and figure in this paper---the crossover (\cref{tab:scaling},
-\cref{fig:scaling}), the real-corpus table (\cref{tab:corpus}), the first-order head-to-head
+\cref{fig:scaling}), the corpus scaling (\cref{fig:corpus}), the first-order head-to-head
 (\cref{tab:baseline}), and the multicommodity tables (\cref{tab:mc,tab:mcdesign,tab:mcreal})---and unit-tests
 every algorithm component, including \cref{prop:laplacian,prop:conv,prop:adjoint,prop:mc} and the OD-matrix
 loader. All timings reported in this paper were measured on an Apple M5 Pro (18 cores, 48\,GB RAM) under

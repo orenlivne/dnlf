@@ -120,7 +120,7 @@ operator tools.
 The construction reuses the NLF solver~\citep{nlf} and its near-linear inner engine,
 Lean Algebraic Multigrid (LAMG$+$)~\citep{lamgplus} (approximate Cholesky (AC)~\citep{kyngsachdeva2016} is interchangeable and has a smaller hidden constant but is less robust here). We treat both the single-commodity
 directed equilibrium (\crefrange{sec:formulation}{sec:results}) and its multicommodity logit stochastic-user-
-equilibrium extension (\cref{sec:mc}), where a distribution-matrix block preconditioner keeps the inner solve
+equilibrium extension (\cref{sec:mc}), where a block-diagonal preconditioner keeps the inner solve
 to a handful of iterations. Active-set deflation that would support a single hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
 total) is an open problem (\cref{sec:conclusion}).
 
@@ -162,7 +162,7 @@ arcs are active (a routing boundary), not through the type of the linear operato
 graph Laplacian, which can be solved fast. This is complete for the single-commodity
 equilibrium (a general balanced demand, possibly multi-source/multi-sink). The multicommodity case
 ($f_a=\sum_k f_a^k$ with a cost of the total flow) yields a coupled \emph{block} system---per-commodity
-Laplacians with a rank-one commodity coupling per arc---which a distribution-matrix block preconditioner still
+Laplacians with a rank-one commodity coupling per arc---which a block-diagonal preconditioner still
 solves in a handful of iterations; we develop this in \cref{sec:mc} (\cref{prop:mc}).
 
 \section{A near-linear equilibrium solver}\label{sec:solver}
@@ -438,7 +438,7 @@ own flow over the shared congested network, and tolls are designed against that 
 the framework to the multicommodity \emph{logit stochastic user equilibrium} (SUE)~\citep{fisk1980,daganzo1977},
 in which route choice has a dispersion $\gamma>0$---a calibrated behavioural parameter, not a numerical
 smoothing. The same near-linear machinery carries over: the multicommodity Newton system is a coupled
-block-Laplacian that a distribution-matrix block preconditioner solves in a handful of iterations, and the design
+block-Laplacian that a block-diagonal preconditioner solves in a handful of iterations, and the design
 adjoint again returns $\nabla_\tau\mathrm{TSTT}$ for all tolls in a single solve.
 
 \subsection{Formulation}
@@ -478,7 +478,7 @@ $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
 block diagonal---one near-linear (AC) solve per commodity. The block diagonal misses only the rank-one coupling
 of \cref{eq:mcjac}, through which the commodities interact solely via the shared total flow $f_a=\sum_k f^k_a$
-that sets each arc's cost---Brandt's \emph{distribution matrix}~\citep{brandt1984}. In the commodity
+that sets each arc's cost, a per-arc Sherman--Morrison (block-diagonal-plus-rank-one) coupling. In the commodity
 mean/deviation basis this coupling sits on the single mean mode: when the per-commodity Laplacians coincide the
 $K-1$ deviation modes decouple from it exactly, leaving only that one mode for preconditioned CG to resolve; when
 the Laplacians differ the deviations mix in as well, at a rate set only by their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
@@ -495,9 +495,9 @@ its deterministic ($\gamma\to0$) limit. That limit is a \emph{different} model--
 user equilibrium, with non-unique commodity flows, for which Frank--Wolfe and related methods are already
 effective---not a regime our fixed-$\gamma$ solver must reach: fixed $\gamma$ is a calibrated route-choice
 dispersion~\citep{fisk1980,daganzo1977}, a complete behavioural model in its own right, so we solve the logit SUE
-at that $\gamma$ and do not pursue $\gamma\to0$. We verified that a coupling-aware distribution-matrix preconditioner
-(per-arc coupling inverted by Sherman--Morrison, aggregate-congestion Laplacian on the mean commodity mode, as
-\citet{brandt1984} prescribes) converges $\gamma$-boundedly where the reduced-potential version does not, but
+at that $\gamma$ and do not pursue $\gamma\to0$. We verified that a coupling-aware preconditioner
+(per-arc coupling inverted by Sherman--Morrison, aggregate-congestion Laplacian on the mean commodity mode)
+converges $\gamma$-boundedly where the reduced-potential version does not, but
 does not beat the block diagonal in the operating regime; the block diagonal is retained. Fixed $\gamma$ is thus both the
 modelling choice (a calibrated route-choice dispersion) and the regime in which the block preconditioner is well
 conditioned.
@@ -653,9 +653,6 @@ equilibria}, SIAM Journal on Scientific Computing (under review), 2026.
 Part B, 14 (1980), pp.~243--255.
 \bibitem[Daganzo and Sheffi(1977)]{daganzo1977} C.~F.~Daganzo and Y.~Sheffi, \emph{On stochastic models of traffic assignment},
 Transportation Science, 11 (1977), pp.~253--274.
-\bibitem[Brandt(1984)]{brandt1984} A.~Brandt, \emph{Multigrid techniques: 1984 guide with applications to fluid dynamics},
-GMD-Studien Nr.~85, Gesellschaft f\"ur Mathematik und Datenverarbeitung, 1984 (distributive/distribution-matrix
-relaxation, \S3.4).
 \bibitem[Amos and Kolter(2017)]{amos2017} B.~Amos and J.~Z.~Kolter, \emph{OptNet: differentiable optimization as a layer in neural
 networks}, in Proc.\ ICML, 2017, pp.~136--145.
 \bibitem[Blondel et al.(2022)]{blondel2022} M.~Blondel et al., \emph{Efficient and modular implicit differentiation}, in Proc.\

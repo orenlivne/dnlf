@@ -486,20 +486,16 @@ grows only logarithmically in $K$, and is independent of graph size $n$ at the o
 $\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, and the equilibrium solve is
 near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor
 ($10^{-12}$ of its maximum weight) so it stays connected and the AC factorization remains
-applicable even to a commodity that concentrates on few arcs. We fall back to a direct solve for the very rare inputs on which the AC factorization throws. The inner conjugate-gradient count is single digit at and near
-equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); only the
-\emph{cold} forward solve at small $\gamma$, far from equilibrium where per-commodity flows concentrate and the
-blocks become high-contrast, is expensive, and that regime is entered only as one leaves the logit-SUE model for
-its deterministic ($\gamma\to0$) limit. That limit is a \emph{different} model---deterministic multicommodity
-user equilibrium, with non-unique commodity flows, for which Frank--Wolfe and related methods are already
-effective---not a regime our fixed-$\gamma$ solver must reach: fixed $\gamma$ is a calibrated route-choice
-dispersion~\citep{fisk1980,daganzo1977}, a complete behavioural model in its own right, so we solve the logit SUE
-at that $\gamma$ and do not pursue $\gamma\to0$. We verified that a coupling-aware preconditioner
-(per-arc coupling inverted by Sherman--Morrison, aggregate-congestion Laplacian on the mean commodity mode)
-converges $\gamma$-boundedly where the reduced-potential version does not, but
-does not beat the block diagonal in the operating regime; the block diagonal is retained. Fixed $\gamma$ is thus both the
-modelling choice (a calibrated route-choice dispersion) and the regime in which the block preconditioner is well
-conditioned.
+applicable even to a commodity that concentrates on few arcs. On the rare block where AC throws---a commodity so
+concentrated that nearly all arcs sit at the floor, leaving a near-disconnected, high-contrast Laplacian that
+Laplacians.jl's randomized elimination can zero-pivot on, which happens only in the cold far-from-equilibrium
+regime---we fall back to a direct solve; this changes only the preconditioner, not the PCG-converged solve. The
+inner count stays single-digit at and near equilibrium across all $\gamma$---the regime the warm-started design
+loop lives in (\cref{tab:mcdesign}). Only the \emph{cold} solve at small $\gamma$, far from equilibrium where
+per-commodity flows concentrate into high-contrast blocks, is expensive, and that regime is approached only as
+$\gamma\to0$---a \emph{different}, harder model (deterministic multicommodity UE, with non-unique flows) already
+served by Frank--Wolfe. Since fixed $\gamma$ is a calibrated route-choice dispersion~\citep{fisk1980,daganzo1977},
+a behavioural model in its own right, we solve the logit SUE at that $\gamma$ and need not pursue $\gamma\to0$.
 
 \subsection{Design Optimization}
 Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity
@@ -515,8 +511,7 @@ and BPR parameters---Sioux Falls ($n=24$, $m=76$, $K=24$ destination commodities
 $K=38$)---destination-bundled design reduces the real system travel time by $7.7$--$13.1\%$ (\cref{tab:mcreal}). Both
 networks are over-saturated at their full published demand (peak volume/capacity above $2.5$); the inner
 iteration count stays bounded and does not grow with size (consistent with the size-independence
-established on the synthetic family, \cref{tab:mc}): Anaheim carries $27\times$ the degrees of freedom of Sioux
-Falls yet needs \emph{fewer} inner iterations. What sets the count is not size but the per-arc commodity coupling
+established on the synthetic family, \cref{tab:mc}). What sets the count is not size but the per-arc commodity coupling
 the block-diagonal preconditioner omits, which is significant only where arcs approach the BPR saturation knee:
 tiny, dense Sioux Falls at its over-saturated published demand forces most carrying arcs there, whereas Anaheim
 spreads flow so typical arcs stay clear of it. A budget-constrained (sparse-toll) design is a natural extension.
@@ -560,8 +555,7 @@ $1{,}600$ & $8$  & $0.10$ & $3{,}600$ & $1.2\%$ & $6$ & $43\%$\\\bottomrule
 networks with their \emph{published} OD matrices and BPR parameters (one commodity per destination zone). Both
 are over-saturated at full demand (peak volume/capacity $>2.5$). Tolls spread across $53$--$74\%$ of arcs. The
 inner conjugate-gradient count at the final equilibrium solve is bounded ($12$--$38$); it is set by proximity
-to the BPR saturation knee (\cref{sec:mc}), not by network size---Anaheim has $27\times$ the degrees of freedom
-of Sioux Falls yet needs fewer iterations.}
+to the BPR saturation knee (\cref{sec:mc}), not by network size.}
 \label{tab:mcreal}
 \begin{tabular}{lrrrrrr}\toprule
 network & $n$ & $m$ & $K$ & $\gamma$ & TSTT red.\ & inner it.\\\midrule

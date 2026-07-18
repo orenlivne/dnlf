@@ -124,6 +124,32 @@ equilibrium extension (\cref{sec:mc}), where a block-diagonal preconditioner kee
 to a handful of iterations. Active-set deflation that would support a single hierarchy valid across all design steps (reducing setups from $\mathcal{O}(1)$-per-solve to $\mathcal{O}(1)$
 total) is an open problem (\cref{sec:conclusion}).
 
+\subsection{Related work}\label{sec:related}
+\paragraph{Bilevel network design and sensitivity.}
+CNDP and second-best tolling are bilevel/MPEC problems, nonconvex and \emph{NP}-hard~\citep{gairing2017,hoefer2008};
+surveys~\citep{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods. Equilibrium sensitivity
+originates with \citet{tobinfriesz1988} and was sharpened by Qiu and Magnanti and by Patriksson
+and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itself a linearized equilibrium solve.
+Our adjoint \cref{eq:adjoint} is precisely that observation; the novelty here is not the $k$-independent gradient
+but the \emph{near-linear} operator that computes it and the forward solve. The same bilevel problem is studied
+in algorithmic game theory as optimal tolling and Stackelberg routing to reduce the price of anarchy of a
+congestion game~\citep{roughgarden2002,swamy2012,korilis1997,cole2003}, and in communication networks as competitive /
+selfish routing~\citep{orda1993,larroca2013}; that literature focuses on existence, bounds, and mechanism design
+rather than on a scalable solver for the induced equilibrium, which is our concern. Recent differentiable-bilevel
+methods
+\citep{li2022,goyal2023} break the cold-resolve-per-step pattern with warm-started, truncated first-order inner
+loops and unrolled/implicit differentiation, but use no multigrid and are demonstrated only at Sioux
+Falls--Chicago-Sketch scale. Their defining component is a first-order inner equilibrium solve; we compare
+head-to-head against a strong instance of it (FISTA on the same convex Beckmann energy) in \cref{sec:results}.
+
+\paragraph{Near-linear Laplacian solvers and nonlinear flow.}
+Nearly-linear-time solvers for symmetric diagonally dominant systems~\citep{kyngsachdeva2016,lamgplus} underpin
+web-scale spectral graph computation but have not, to our knowledge, been used as the inner solve of a bilevel
+traffic-design loop. The nonlinear Laplacian flow framework~\citep{nlf} unifies max-flow, congestion, and
+min-delay routing as one monotone edge-law equation and supplies the chord-Newton machinery we build on;
+the present work extends it from the undirected relaxation to the directed (rectified) equilibrium and to the
+design (adjoint) problem.
+
 \section{The directed equilibrium is a nonlinear Laplacian flow}\label{sec:formulation}
 Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{h(a)}-e_{t(a)}$
 for arc $a$ from tail $t(a)$ to head $h(a)$. Separable BPR latencies are $t_a(f)=t^0_a\big(1+\beta_a(f/c_a)^{p_a}\big)$
@@ -565,32 +591,6 @@ Anaheim     & $416$ & $914$ & $38$ & $2$ & $12.2\%$ & $16$\\
 Anaheim     & $416$ & $914$ & $38$ & $5$ & $\phantom{0}7.7\%$  & $12$\\\bottomrule
 \end{tabular}
 \end{table}
-
-\section{Related work}\label{sec:related}
-\subsection{Bilevel network design and sensitivity.}
-CNDP and second-best tolling are bilevel/MPEC problems, nonconvex and \emph{NP}-hard~\citep{gairing2017,hoefer2008};
-surveys~\citep{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods. Equilibrium sensitivity
-originates with \citet{tobinfriesz1988} and was sharpened by Qiu and Magnanti and by Patriksson
-and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itself a linearized equilibrium solve.
-Our adjoint \cref{eq:adjoint} is precisely that observation; the novelty here is not the $k$-independent gradient
-but the \emph{near-linear} operator that computes it and the forward solve. The same bilevel problem is studied
-in algorithmic game theory as optimal tolling and Stackelberg routing to reduce the price of anarchy of a
-congestion game~\citep{roughgarden2002,swamy2012,korilis1997,cole2003}, and in communication networks as competitive /
-selfish routing~\citep{orda1993,larroca2013}; that literature focuses on existence, bounds, and mechanism design
-rather than on a scalable solver for the induced equilibrium, which is our concern. Recent differentiable-bilevel
-methods
-\citep{li2022,goyal2023} break the cold-resolve-per-step pattern with warm-started, truncated first-order inner
-loops and unrolled/implicit differentiation, but use no multigrid and are demonstrated only at Sioux
-Falls--Chicago-Sketch scale. Their defining component is a first-order inner equilibrium solve; we compare
-head-to-head against a strong instance of it (FISTA on the same convex Beckmann energy) in \cref{sec:results}.
-
-\subsection{Near-linear Laplacian solvers and nonlinear flow.}
-Nearly-linear-time solvers for symmetric diagonally dominant systems~\citep{kyngsachdeva2016,lamgplus} underpin
-web-scale spectral graph computation but have not, to our knowledge, been used as the inner solve of a bilevel
-traffic-design loop. The nonlinear Laplacian flow framework~\citep{nlf} unifies max-flow, congestion, and
-min-delay routing as one monotone edge-law equation and supplies the chord-Newton machinery we build on;
-the present work extends it from the undirected relaxation to the directed (rectified) equilibrium and to the
-design (adjoint) problem.
 
 \section{Conclusions, limitations, and open problems}\label{sec:conclusion}
 We showed that the directed user equilibrium with separable costs is a nonlinear Laplacian flow whose Jacobian

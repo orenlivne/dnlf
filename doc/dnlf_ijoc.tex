@@ -521,7 +521,11 @@ loop lives in (\cref{tab:mcdesign}). Only the \emph{cold} solve at small $\gamma
 per-commodity flows concentrate into high-contrast blocks, is expensive, and that regime is approached only as
 $\gamma\to0$---a \emph{different}, harder model (deterministic multicommodity UE, with non-unique flows) already
 served by Frank--Wolfe. Since fixed $\gamma$ is a calibrated route-choice dispersion~\citep{fisk1980,daganzo1977},
-a behavioural model in its own right, we solve the logit SUE at that $\gamma$ and need not pursue $\gamma\to0$.
+a behavioural model in its own right, we solve the logit SUE at that $\gamma$ and need not pursue $\gamma\to0$.%
+\footnote{We also tested a coupling-aware preconditioner (per-arc rank-one coupling inverted by
+Sherman--Morrison, aggregate-congestion Laplacian on the mean commodity mode): it converges
+$\gamma$-boundedly where the block-diagonal rate degrades, but does not beat the block diagonal in the operating
+regime, so the block diagonal is retained.}
 
 \subsection{Design Optimization}
 Tolls enter the logit map as a per-arc cost shift $t_a(f_a)+\tau_a$, with flow sensitivity

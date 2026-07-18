@@ -478,16 +478,15 @@ $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 We solve \cref{eq:mcbeck} by $\gamma$-continuation damped Newton on $\Phi$, preconditioning \cref{eq:mcjac} by its
 block diagonal---one near-linear (AC) solve per commodity. The block diagonal misses only the rank-one coupling
 of \cref{eq:mcjac}, through which the commodities interact solely via the shared total flow $f_a=\sum_k f^k_a$
-that sets each arc's cost, a per-arc Sherman--Morrison (block-diagonal-plus-rank-one) coupling. In the commodity
+that sets each arc's cost. In the commodity
 mean/deviation basis this coupling sits on the single mean mode: when the per-commodity Laplacians coincide the
 $K-1$ deviation modes decouple from it exactly, leaving only that one mode for preconditioned CG to resolve; when
-the Laplacians differ the deviations mix in as well, at a rate set only by their spread. Empirically (\cref{tab:mc}) the inner conjugate-gradient count is single digit to low double digit,
+the Laplacians differ the deviations mix in as well, at a rate set only by their spread. Empirically (\cref{tab:mc}) the number of conjugate-gradient iterations $\leq 13$,
 grows only logarithmically in $K$, and is independent of graph size $n$ at the operating dispersion
 $\gamma\approx0.1$; each Newton step therefore costs $O(K)$ near-linear solves, and the equilibrium solve is
 near-linear in the total size $Kn$. Each per-commodity Laplacian carries a small relative conductance floor
 ($10^{-12}$ of its maximum weight) so it stays connected and the AC factorization remains
-applicable even to a commodity that concentrates on few arcs; a pinned direct solve is retained only as a
-fallback for the rare inputs on which the approximate-Cholesky factorization throws. The count is single digit at and near
+applicable even to a commodity that concentrates on few arcs. We fall back to a direct solve for the very rare inputs on which the AC factorization throws. The inner conjugate-gradient count is single digit at and near
 equilibrium across all $\gamma$---the regime the warm-started design loop stays in (\cref{tab:mcdesign}); only the
 \emph{cold} forward solve at small $\gamma$, far from equilibrium where per-commodity flows concentrate and the
 blocks become high-contrast, is expensive, and that regime is entered only as one leaves the logit-SUE model for

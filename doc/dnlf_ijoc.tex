@@ -251,7 +251,9 @@ smoothed level solve, so the paper does not depend on external convergence theor
 Fix $\delta>0$ and tolls $\tau$. The smoothed Beckmann energy
 $E_\delta(\phi)=\sum_a\Psi_{a,\delta}\big((B^\top\phi)_a-\tau_a\big)-d^\top\phi$, with
 $\Psi_{a,\delta}'=\rho_{a,\delta}$, is convex, and strictly convex and coercive on the quotient
-$\R^n/\langle\mathbf1\rangle$ whenever $\sum_a d_a=0$ and the graph is connected. Its unique minimizer (modulo an
+$\R^n/\langle\mathbf1\rangle$ whenever $\sum_a d_a=0$, the graph is strongly connected, and $d$ is
+\emph{strictly routable} (interior to the cone of demands realizable by strictly positive arc flows---the
+feasibility a Wardrop equilibrium presumes). Its unique minimizer (modulo an
 additive constant) is the smoothed equilibrium $B\rho_\delta(B^\top\phi-\tau)=d$. The damped chord-Newton
 iteration $\phi\leftarrow\phi+s\,\delta\phi$, $\delta\phi=-J_\delta^{-1}\nabla E_\delta$ with $J_\delta$ frozen
 across the level and $s$ from Armijo backtracking, produces a monotonically decreasing energy sequence that
@@ -261,9 +263,14 @@ converges to that minimizer.
 $\rho_{a,\delta}$ is nondecreasing (its derivative $\rho'_{a,\delta}=\sigma(e/\delta)/t'_a(f_a)>0$), so each
 $\Psi_{a,\delta}$ is convex and $E_\delta$ is convex with Hessian $J_\delta=B\,\mathrm{diag}(\rho'_\delta)\,B^\top$.
 Because the smoothed law has \emph{no dead zone}, $\rho'_{a,\delta}>0$ on \emph{every} arc, so $J_\delta$ is a
-connected weighted graph Laplacian, hence positive definite on $\mathbf1^\perp$; thus $E_\delta$ is strictly
-convex and coercive on the quotient and has a unique minimizer there, characterized by $\nabla E_\delta=
-B\rho_\delta(B^\top\phi-\tau)-d=0$. For the iteration, $J_\delta\succ0$ on $\mathbf1^\perp$ makes
+connected weighted graph Laplacian, positive definite on $\mathbf1^\perp$, which gives strict convexity of
+$E_\delta$ on the quotient. Coercivity is a separate condition: the one-sided smoothed law saturates
+($\rho_{a,\delta}\to0$ and $\Psi_{a,\delta}$ bounded as the arc excess $\to-\infty$), so $\sum_a\Psi_{a,\delta}$
+stays bounded only along directions $v\perp\mathbf1$ with $B^\top v\le0$ (all arc drops non-increasing); on such
+a direction the linear term $-d^\top\phi$ dominates and $E_\delta\to+\infty$ \emph{precisely because} $d$ is
+strictly routable, i.e.\ $d^\top v<0$ for every nonzero such $v$ (cone duality with the nonnegative-flow
+feasibility cone). Strict convexity together with coercivity yields a unique minimizer on the quotient,
+characterized by $\nabla E_\delta=B\rho_\delta(B^\top\phi-\tau)-d=0$. For the iteration, $J_\delta\succ0$ on $\mathbf1^\perp$ makes
 $\delta\phi$ a descent direction ($\nabla E_\delta^\top\delta\phi=-\nabla E_\delta^\top J_\delta^{-1}\nabla
 E_\delta<0$), and Armijo backtracking on the convex, coercive, smooth $E_\delta$ gives sufficient decrease at each
 step; the standard damped modified-Newton argument for a fixed positive-definite metric then yields convergence
@@ -294,7 +301,7 @@ at the equilibrium $\phi=\phi^\star(\tau)$.
 \begin{proposition}[near-linear adjoint gradient]\label{prop:adjoint}
 At a differentiable equilibrium with active-arc conductances $\rho'>0$,
 \begin{equation}\label{eq:adjoint}
-\nabla_\tau F=-\rho'\odot\big(m_c+B^\top\lambda\big),\qquad J\lambda=B\,(m_c\odot\rho'),
+\nabla_\tau F=\rho'\odot\big(B^\top\lambda-m_c\big),\qquad J\lambda=B\,(m_c\odot\rho'),
 \end{equation}
 where $m_{c,a}=t_a(f_a)+f_a t'_a(f_a)$ is the marginal cost and $J=B\,\mathrm{diag}(\rho')\,B^\top$ is the
 equilibrium Jacobian of \cref{prop:laplacian}. The gradient with respect to all $k$ tolls is thus obtained from a
@@ -368,19 +375,22 @@ would instead require a design-loop polish---a few tight-tolerance steps from th
 within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reduction is modest because a single origin--destination pair admits little rerouting; the design problem is more involved for the
 multicommodity instances of \cref{sec:mc}.
 
-\paragraph{Design at scale.} The reviewer-facing question is not the size of any one TSTT reduction but whether
-the \emph{per-step} design cost stays near-linear far beyond the ${\sim}10^2$-link ceiling of exact
-sensitivity-analysis (SAB) methods, whose every step factorizes the equilibrium Jacobian (superlinearly, fill-dominated). We answer it directly on the CAIDA router-level Internet graph ($n=190{,}914$, $m=1.22\times10^6$),
-a genuine communication network in the paper's target regime. There the cold equilibrium solves in $149$~s, and
-each subsequent design step costs \emph{one} adjoint solve---which returns the gradient with respect to
-\emph{all} $1.22\times10^6$ tolls in $\mathbf{0.9}$~s via a single near-linear Laplacian solve
-(\cref{prop:adjoint})---plus \emph{one} warm equilibrium re-solve at ${\approx}30$~s. The adjoint and re-solve
-are the two operations an SAB step performs by direct factorization; here both are near-linear, so a design
-iteration on a $1.2$-million-link network costs seconds, not the hours (or out-of-memory) a direct
-factorization at this size would require. The TSTT \emph{reduction} realized is instance-dependent (a function
-of the congestion regime) and is quantified on the calibrated road networks---$5.15\%$ on Sioux Falls above and
-$7.7$--$13.1\%$ on Anaheim (\cref{sec:mc}); the point here is that the machinery that produces those reductions
-runs, unchanged, three-to-four orders of magnitude larger than exact SAB design can reach.
+\paragraph{Design at scale.} Exact sensitivity-analysis (SAB) design factorizes the equilibrium Jacobian at
+every step (superlinearly, fill-dominated), capping it near ${\sim}10^2$ links; the question is whether the
+\emph{full} design loop of \cref{alg:design}---not merely one gradient---runs at metropolitan-communication
+scale. We run it to convergence on the \texttt{p2p-Gnutella31} overlay ($n=62{,}561$, $m=2.96\times10^5$; $324\times$
+Anaheim's link count), a graph in the paper's selfish-overlay-routing regime, at a demand calibrated to
+moderate congestion (peak volume/capacity ${\approx}10$). Projected-gradient tolling takes $20$ accepted steps to
+a monotone $0.56\%$ TSTT reduction; each step is \emph{one} adjoint---returning the gradient with respect to
+\emph{all} $2.96\times10^5$ tolls in ${\approx}0.1$--$0.4$~s via a single near-linear Laplacian solve
+(\cref{prop:adjoint})---plus \emph{one} warm equilibrium re-solve at ${\approx}10$--$30$~s, for ${\approx}20$~min
+total including the cold solve. The two operations an SAB step performs by direct factorization are here both
+near-linear, so a design iteration at $3\times10^5$ links costs seconds. The single sub-second adjoint scales
+further still: on the $1.22$-million-arc CAIDA router graph one adjoint returns all $1.22\times10^6$ toll
+gradients in $0.9$~s. As with the single-OD Sioux Falls case ($5.15\%$), the reduction here is modest because a
+single fungible commodity admits limited rerouting; the larger, model-calibrated reductions ($7.7$--$13.1\%$)
+come from the multicommodity design of \cref{sec:mc}. The point is that the design \emph{loop}, unchanged, runs
+two-to-three orders of magnitude beyond the SAB ceiling.
 
 \subsection{Widening Advantage on Size-Scaled Networks}
 On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$ equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$, while
@@ -505,6 +515,33 @@ loader. All timings reported in this paper were measured on an Apple M5 Pro (18 
 macOS~26.5. The test networks are the TNTP Sioux Falls and Anaheim instances with their published
 OD matrices (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
 \texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
+\Cref{tab:repro} pins every solver parameter to a symbol and a repository flag; the package \texttt{Manifest}
+pins all software versions (Julia, \texttt{Laplacians.jl} for approximate Cholesky, LAMG$+$, and
+UMFPACK/COLAMD for the direct baseline). The synthetic instances (\cref{tab:scaling,tab:baseline,tab:mcdesign})
+use random degree-$5$ graphs and a demand of $\lceil n/8\rceil$ random source/sink pairs scaled to a fixed
+total, all under the fixed seed of \cref{tab:repro}; each corpus instance places the same synthetic demand and
+BPR parameters on the real topology (so \cref{fig:corpus} times a fixed, documented congestion problem, not an
+ad-hoc one). Because approximate Cholesky is randomized, reported iteration/setup counts are from that fixed
+seed; the repository reproduces them exactly and reports run-to-run spread.
+
+\begin{table}[t]\centering
+\caption{Reproducibility: solver parameters and their repository flags. Accurate mode ($\varepsilon_{\mathrm{int}}$
+disabled) is used for the correctness and design results (\crefrange{sec:results}{sec:design}); the loose-homotopy,
+adaptive-polish mode for the corpus (\cref{fig:corpus}) and the design-at-scale run.}
+\label{tab:repro}\small
+\begin{tabular}{llll}\toprule
+symbol & meaning & value & repo flag\\\midrule
+$\varepsilon_{\mathrm{tol}}$ & final/accurate tolerance & $10^{-9}$ & \texttt{tol}\\
+$\varepsilon_{\mathrm{int}}$ & loose intermediate tolerance & $3\times10^{-2}$, $\le6$ steps & \texttt{itol}, \texttt{inmax}\\
+$\delta_k$ & $\delta$-schedule (ratio, count) & $\tfrac12\bar t^0\,0.85^{k-1}$, $k{\le}111$ & \texttt{dfracs}\\
+$\varepsilon$ & relative conductance floor & $10^{-12}$ & (fixed)\\
+$\eta$ & inner AMG/PCG tolerance & $5\times10^{-2}$ & \texttt{eta}\\
+--- & loose homotopy, adaptive polish & on & \texttt{tight\_last=false}\\
+$\gamma$ & logit dispersion (target) & $0.1$; $2,5$ (roads) & \texttt{gamma}\\
+seed & graph/demand RNG & $1$ & \texttt{MersenneTwister}\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Multicommodity logit stochastic user equilibrium and design}\label{sec:mc}
 The single-commodity solver of \cref{sec:solver} routes a general balanced demand as one fungible flow.

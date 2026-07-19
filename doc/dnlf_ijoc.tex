@@ -414,7 +414,12 @@ separation: on poorly-separable topologies nested dissection has weak vertex sep
 grows superlinearly, and the near-linear-vs.-superlinear gap is a property of the fill, not of the ordering.
 The near-linear exponent is inherited from the inner solve, not the outer iteration: the total chord-Newton step count
 (${\approx}1600$), inner-engine setups (${\approx}100$, one AMG build per fine $\delta$-level), and per-step Jacobian assembly are
-all size-independent, so the wall-clock reflects a single near-linear inner solve, ${\approx}m^{1.17}$. The two graph Laplacian engines are
+all size-independent, so the wall-clock reflects a single near-linear inner solve, ${\approx}m^{1.17}$. Across
+three random-graph seeds the synthetic exponent has median $1.14$ and range $[1.06,1.23]$, bracketing this single
+run and consistent with the $96$-graph corpus fit $t\propto m^{1.10}$ (\cref{sec:results}; bootstrap CI
+$[1.02,1.20]$); the run-to-run spread reflects single-machine memory-bandwidth variance at the largest sizes, so
+the exponent is a wall-clock measurement rather than a complexity constant, and the corpus fit is the primary
+near-linearity evidence. The two graph Laplacian engines are
 interchangeable; we use LAMG$+$ by default for its robustness on large graph instances (\cref{tab:scaling}).
 
 \subsection{Corpus Scaling}

@@ -1,0 +1,24 @@
+seed=1 n=1000   m=9964     t=3.58s
+seed=1 n=2000   m=19946    t=9.68s
+seed=1 n=4000   m=39952    t=18.67s
+seed=1 n=8000   m=79936    t=43.92s
+seed=1 n=16000  m=159954   t=113.59s
+seed=1 n=32000  m=319952   t=275.89s
+  >> seed=1 exponent m^1.234
+seed=2 n=1000   m=9932     t=4.92s
+seed=2 n=2000   m=19942    t=10.88s
+seed=2 n=4000   m=39952    t=31.62s
+seed=2 n=8000   m=79940    t=54.54s
+seed=2 n=16000  m=159942   t=106.02s
+seed=2 n=32000  m=319948   t=194.45s
+  >> seed=2 exponent m^1.060
+seed=3 n=1000   m=9946     t=3.21s
+seed=3 n=2000   m=19956    t=12.35s
+seed=3 n=4000   m=39952    t=20.65s
+seed=3 n=8000   m=79962    t=50.37s
+seed=3 n=16000  m=159946   t=93.83s
+seed=3 n=32000  m=319940   t=204.45s
+  >> seed=3 exponent m^1.142
+
+EXPONENT over 3 seeds: median m^1.142, range [1.060, 1.234]  (values: 1.060, 1.142, 1.234)
+DONE

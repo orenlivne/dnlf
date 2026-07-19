@@ -7,6 +7,7 @@ authors = ["Oren Livne <oren.livne@gmail.com>"]
 LAMG = "5a7e4c11-0000-4a1e-9c2f-1a2b3c4d5e6f"
 Laplacians = "6f8e5838-0efe-5de0-80a3-5fb4f8dbb1de"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 NLF = "cef77db7-f4e9-4a08-a19e-0d28163d44d4"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -17,6 +18,7 @@ NLF = {path = "../nlf"}
 
 [compat]
 Laplacians = "1.4.1"
+Metis = "1.5.0"
 julia = "1.10"
 
 [extras]

@@ -19,10 +19,11 @@ module DNLF
 
 using NLF                       # the dependency chain: DNLF → NLF → LAMG+ (NLF re-exports LAMG)
 import Laplacians               # approxchol_lap — the swappable near-linear inner engine (approx-Cholesky)
+import Metis                    # nested-dissection ordering for the CHOLMOD direct baseline (chol_builder)
 using LinearAlgebra, SparseArrays, Printf
 
 export DirectedNetwork, load_tntp_net, load_tntp_trips, destination_demands, solve_ue, solve_flow, solve_ue_direct, frank_wolfe, tstt,
-       toll_gradient, adjoint_grad, approxchol_builder, lu_builder, rectified_law, ue_energy, smoothed_law,
+       toll_gradient, adjoint_grad, approxchol_builder, lu_builder, chol_builder, rectified_law, ue_energy, smoothed_law,
        solve_sue, mc_flows, mc_resid, mc_jac, mc_blk_precond, mc_pcg, mc_tstt, mc_adjoint
 
 "Directed network with separable BPR arc costs `t_a(f) = t⁰(1 + b (f/c)^p)`."
@@ -148,6 +149,22 @@ function lu_builder()
     end
 end
 
+# STRONGER direct baseline: supernodal Cholesky (CHOLMOD) under a METIS **nested-dissection** ordering, the
+# fair direct incumbent for the SPD graph-Laplacian J (vs the unsymmetric UMFPACK+COLAMD LU of `lu_builder`).
+# Same freeze-once-per-level discipline: order + symbolic + numeric factor once, reuse by back-substitution.
+# The node-1-pinned Laplacian Lc[keep,keep] is SPD; Metis gives the ND permutation, CHOLMOD factors with it.
+function chol_builder()
+    return Lc -> begin
+        n = size(Lc, 1); keep = 2:n
+        A = Symmetric(Lc[keep, keep])
+        p = Vector{Int}(Metis.permutation(sparse(A))[1])   # METIS nested-dissection fill-reducing order
+        F = cholesky(A; perm = p)
+        rhs -> begin
+            x = zeros(n); x[keep] = F \ rhs[keep]; x .-= sum(x)/n; x
+        end
+    end
+end
+
 # Rectified directed edge law as a newton_flow! callback. NLF's callback receives g = Bₙᵀx; with the
 # solver incidence Bₙ = −N.B we get gₐ = φ_init − φ_term, so fₐ = ρₐ(gₐ − τₐ), dρₐ = ρ′ₐ ≥ 0.
 rectified_law(N::DirectedNetwork, τ) = (f, dρ, g) -> begin
@@ -218,8 +235,9 @@ function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = no
                                       # instance instead of letting it block a batch run indefinitely.
     Bn   = -N.B                                          # (Bₙᵀx)ₐ = φ_init − φ_term  (rho's convention)
     bs   = inner === :approxchol ? approxchol_builder() :
-           inner === :lu         ? lu_builder()          : nothing
-    isym = (inner === :approxchol || inner === :lu) ? :multigrid : inner   # engine injected via build_solver
+           inner === :lu         ? lu_builder()          :
+           inner === :cholmod    ? chol_builder()        : nothing
+    isym = (inner === :approxchol || inner === :lu || inner === :cholmod) ? :multigrid : inner   # engine injected via build_solver
     H, SC, ST, setups, GG = Hpack === nothing ?
         (Ref{Any}(nothing), Ref(1.0), Ref(false), Ref(0), Ref(1.0)) : Hpack
     x = init === nothing ? zeros(N.n) : copy(init)

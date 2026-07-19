@@ -121,7 +121,9 @@ mcnet = mc_randnet(200)
         @test reldiff(fa, fx)  < 1e-7                          # approxChol = direct
         xa, fal, _, _ = DNLF.solve_flow(net, d, zeros(net.m); inner = :approxchol, tol = 1e-10)
         xl, fll, _, _ = DNLF.solve_flow(net, d, zeros(net.m); inner = :lu,         tol = 1e-10)
+        xc, flc, _, _ = DNLF.solve_flow(net, d, zeros(net.m); inner = :cholmod,    tol = 1e-10)
         @test reldiff(fal, fll) < 1e-6                         # engine-agnostic solve_flow (lu = approxchol)
+        @test reldiff(fal, flc) < 1e-6                         # CHOLMOD+METIS direct baseline = approxchol
         # warm start from a nearby toll's solution reaches the same equilibrium
         φw, _, _, _ = DNLF.solve_flow(net, d, fill(0.5, net.m); tol = 1e-10)
         _, fw, _, _ = DNLF.solve_flow(net, d, zeros(net.m); tol = 1e-10, init = φw)

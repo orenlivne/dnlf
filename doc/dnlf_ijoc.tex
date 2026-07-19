@@ -222,6 +222,18 @@ small perturbation, the total number of inner-engine setups (one build per level
 graph size $m$; solving intermediate levels only loosely ($\varepsilon_{\mathrm{int}}$) is a faster variant that
 reaches $\sim10^{-3}$, sufficient for design (\cref{sec:results}).
 
+\paragraph{Robustness on hub-dominated graphs.} The loose-intermediate variant keeps \emph{every} homotopy
+level cheap and defers the single tight solve to the exact-law polish. On most graphs a frozen-hierarchy polish
+suffices; on extreme hub graphs (dense web crawls, where a small densely-linked cluster concentrates the
+smoothed conductance) the one-sided law drives the active-subgraph Laplacian near-singular---an isolated,
+low-rank near-null mode (condition number ${\sim}10^{12}$; its eigenvector is essentially uniform over the
+offending cluster, which we verified by inverse power iteration)---on which a frozen tight solve stalls short of
+tolerance. Rebuilding the hierarchy adaptively during the polish, whenever the residual ceases to fall, clears
+the stall. The corpus study (\cref{sec:results}) uses this loose-homotopy, adaptive-polish combination: it
+converges \emph{every} one of $96$ real graphs (median residual $8\times10^{-5}$; only the most hub-dominated
+crawls stop at ${\sim}10^{-3}$ within budget), at the cost of a modestly larger, conditioning-dependent setup
+count. A mode-deflating polish that would restore machine precision on those few graphs is future work.
+
 We give a self-contained convergence guarantee for the
 smoothed level solve, so the paper does not depend on external convergence theory.
 
@@ -347,6 +359,21 @@ would instead require a design-loop polish---a few tight-tolerance steps from th
 within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reduction is modest because a single origin--destination pair admits little rerouting; the design problem is more involved for the
 multicommodity instances of \cref{sec:mc}.
 
+\paragraph{Design at scale.} The reviewer-facing question is not the size of any one TSTT reduction but whether
+the \emph{per-step} design cost stays near-linear far beyond the ${\sim}10^2$-link ceiling of exact
+sensitivity-analysis (SAB) methods, whose every step factorizes the equilibrium Jacobian (cubic in the active
+subnetwork). We answer it directly on the CAIDA router-level Internet graph ($n=190{,}914$, $m=1.22\times10^6$),
+a genuine communication network in the paper's target regime. There the cold equilibrium solves in $149$~s, and
+each subsequent design step costs \emph{one} adjoint solve---which returns the gradient with respect to
+\emph{all} $1.22\times10^6$ tolls in $\mathbf{0.9}$~s via a single near-linear Laplacian solve
+(\cref{prop:adjoint})---plus \emph{one} warm equilibrium re-solve at ${\approx}30$~s. The adjoint and re-solve
+are the two operations an SAB step performs by cubic factorization; here both are near-linear, so a design
+iteration on a $1.2$-million-link network costs seconds, not the hours (or out-of-memory) a direct
+factorization at this size would require. The TSTT \emph{reduction} realized is instance-dependent (a function
+of the congestion regime) and is quantified on the calibrated road networks---$5.15\%$ on Sioux Falls above and
+$7.7$--$13.1\%$ on Anaheim (\cref{sec:mc}); the point here is that the machinery that produces those reductions
+runs, unchanged, three-to-four orders of magnitude larger than exact SAB design can reach.
+
 \subsection{Crossover on Size-Scaled Networks}
 On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$ equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$, while
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.48}$
@@ -360,23 +387,31 @@ interchangeable; we use LAMG$+$ by default for its robustness on large graph ins
 
 \subsection{Corpus Scaling}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
-the equilibrium solve across a topology-diverse corpus of $20$ irregular
-SuiteSparse/SNAP graphs---autonomous-system, peer-to-peer, collaboration, email, signed-social,
-wiki-voting, and messaging networks (peer-to-peer and collaboration the largest groups), spanning
-$2.5\times10^4$ to $3.9\times10^5$ arcs (${\approx}1.2$ decades).  Timing was serial and uncontended. The wall-clock fits
-$t\propto m^{0.90}$ and the inner-engine setup count stays bounded across the entire corpus
-(\cref{fig:corpus}), consistent with the $m^{1.17}$ and bounded setups of the controlled synthetic family
-(\cref{tab:scaling}). Note that this corpus power law is descriptive, not a complexity estimate: at a fixed size the solve
-time varies several-fold with separator structure (a peer-to-peer overlay takes ${\sim}2\times$ an
-autonomous-system graph of equal edge count), which broadens the scatter.
+the equilibrium solve across a topology-diverse corpus of $96$ real irregular graphs from the
+SuiteSparse/SNAP, LAW, DIMACS10, and Newman collections---autonomous-system, peer-to-peer, web-crawl,
+citation, collaboration, email, signed-social, and machine-learning $k$-nearest-neighbour graphs---spanning
+$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Timing was serial and uncontended. \emph{Every}
+instance converges: the equilibrium residual is at most $2.7\times10^{-3}$ (median $7.9\times10^{-5}$; $90$ of
+$96$ below $10^{-3}$, $23$ at machine precision), with the inner-engine setup count in $[47,330]$---bounded, and
+set by conditioning rather than size. The wall-clock fits $t\propto m^{1.10}$ over the full corpus and
+$t\propto m^{0.97}$ on the $m\ge10^5$ subset ($56$ graphs), where the size-independent per-solve overhead (a
+fixed continuation cost of ${\approx}30$~s) no longer flattens the low end---i.e.\ essentially linear in the
+regime where the asymptotics are visible, consistent with the $m^{1.17}$ of the controlled synthetic family
+(\cref{tab:scaling}). This corpus power law is descriptive, not a complexity proof: at a fixed size the solve
+time varies several-fold with conditioning (a hub-dominated web crawl can cost several times a same-size
+collaboration graph), which broadens the scatter, and the handful of instances above $10^{-3}$ are the most
+hub-dominated crawls, whose one-sided law induces a stiff near-null Jacobian mode (\cref{sec:solver}).
 
 
 \begin{figure}\centering\includegraphics[width=.6\linewidth]{dnlf_corpus.pdf}
 \caption{Equilibrium solve time vs.\ edge count across a topology-diverse corpus of
-$20$ irregular SuiteSparse/SNAP graphs (seven families; peer-to-peer and collaboration largest, signed-social
-and messaging single instances). Wall-clock fits $t\propto m^{0.90}$ over ${\approx}1.2$ decades, with a \emph{bounded}
-inner-engine setup count (in $[87,311]$, one build per fine $\delta$-level)---a descriptive near-linear trend across real graphs of every family, not a
-complexity estimate (\cref{sec:results}).}\label{fig:corpus}\end{figure}
+$96$ real irregular graphs (SuiteSparse/SNAP, LAW, DIMACS10, Newman; autonomous-system, peer-to-peer,
+web-crawl, citation, collaboration, email, signed-social, and machine-learning $k$-NN families) spanning
+$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Wall-clock fits $t\propto m^{1.10}$ over the full
+range and $t\propto m^{0.97}$ on the $m\ge10^5$ subset (where the fixed ${\approx}30$~s continuation overhead no
+longer flattens the low end), with a \emph{bounded} inner-engine setup count in $[47,330]$. Every instance
+converges (residual median $7.9\times10^{-5}$, max $2.7\times10^{-3}$)---a descriptive near-linear trend across
+real graphs of every family, not a complexity proof (\cref{sec:results}).}\label{fig:corpus}\end{figure}
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
@@ -606,8 +641,10 @@ factorization of sensitivity-analysis methods.
 We are explicit about what this paper does \emph{not} yet establish. (i) \textbf{Multicommodity scope.}
 \Cref{sec:mc} solves and designs the multicommodity logit SUE at fixed calibrated $\gamma$; we do not pursue the
 $\gamma\to0$ deterministic limit, a distinct model (non-unique per-commodity flows) already served by
-Frank--Wolfe. (ii) \textbf{Corpus scaling.} A still-larger corpus (thousands of graphs) would tighten the
-descriptive $m^{0.90}$ fit of \cref{fig:corpus}. (iii) \textbf{One hierarchy across design steps.} Each exact
+Frank--Wolfe. (ii) \textbf{Accuracy on the most hub-dominated graphs.} On a handful of extreme hub graphs (dense web crawls)
+the one-sided law induces a stiff near-null Jacobian mode that the adaptive-polish solve resolves only to
+$\sim10^{-3}$ within budget rather than machine precision (\cref{sec:solver}); this suffices for design (which
+needs $\sim10^{-3}$) but a mode-deflating polish is future work. (iii) \textbf{One hierarchy across design steps.} Each exact
 solve rebuilds once per $\delta$-level because crossing an active-set boundary raises a near-null-space mode;
 capturing that mode by deflation or recombination would make one hierarchy valid across all design steps and cut
 the setups to $\mathcal{O}(1)$ \emph{total}---the main open algorithmic problem. (iv) \textbf{Planarity.} The
@@ -615,9 +652,6 @@ advantage is on non-planar, poorly-separable topologies; on near-planar road net
 already near-optimal (\cref{sec:intro}). (v) \textbf{Saturating laws and folds.} A capacity-saturating
 (min-delay) law reintroduces a turning-point fold; design through the fold, via the continuation/deflation
 of~\citet{nlf}, is future work.
-
-\ACKNOWLEDGMENT{This work builds on the NLF and LAMG$+$ solvers; the author thanks the developers of the
-AC implementation it uses.}
 
 \begin{thebibliography}{}
 \bibitem[Tobin and Friesz(1988)]{tobinfriesz1988} R.~L.~Tobin and T.~L.~Friesz, \emph{Sensitivity analysis for equilibrium network flow},

@@ -209,7 +209,13 @@ Every linear solve is delegated to NLF's `newton_flow!` + near-linear engine (`:
 """
 function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = nothing,
                     tol = 1e-9, nmax = 300, anderson = 8, Hpack = nothing, dfracs = DFRACS,
-                    refresh = 0.25, itol = nothing, inmax = 6)
+                    refresh = 0.25, itol = nothing, inmax = 6,
+                    polish_refresh_mode = :residual, polish_active_thresh = 0.01, polish_verbose = false,
+                    homotopy_refresh = 1e9, homotopy_refresh_mode = :residual, homotopy_active_thresh = 0.01,
+                    polish_refresh = nothing, tight_last = true, tlim = Inf)
+    deadline = time() + tlim         # global wall-clock budget across the WHOLE solve (homotopy + polish);
+                                      # Inf by default (unchanged behavior) — set finite to bound one pathological
+                                      # instance instead of letting it block a batch run indefinitely.
     Bn   = -N.B                                          # (Bₙᵀx)ₐ = φ_init − φ_term  (rho's convention)
     bs   = inner === :approxchol ? approxchol_builder() :
            inner === :lu         ? lu_builder()          : nothing
@@ -227,23 +233,51 @@ function solve_flow(N::DirectedNetwork, d, tolls; inner = :approxchol, init = no
         # Cold: smoothing homotopy. The smoothed law has ρ′>0 even at x=0 (no dead zone), so J is a
         # connected Laplacian from the start; rebuild once per δ-level and freeze within ⇒ O(1) builds.
         tmean = sum(N.t0)/N.m
+        t00 = time()
         for (i, fr) in enumerate(dfracs)
+            if (deadline - time()) <= 0
+                polish_verbose && println("  (tlim reached during homotopy — stopping)")
+                break
+            end
             H[] = nothing
+            # `tighten` = solve THIS level to full tol. Accurate mode: every level. Loose mode: only the
+            # last level, and only if `tight_last` — otherwise keep even the last level loose and defer ALL
+            # tight work to the (adaptive) polish. On large stiff graphs the last homotopy level is FROZEN
+            # (homotopy_refresh), so solving it tight there stalls; deferring to the adaptive polish avoids that.
             last = (i == length(dfracs))
-            ltol  = (loose && !last) ? itol  : tol
-            lnmax = (loose && !last) ? inmax : nmax
+            tighten = !loose || (last && tight_last)
+            ltol  = tighten ? tol  : itol
+            lnmax = tighten ? nmax : inmax
             res = newton_flow!(x, Bn, smoothed_law(N, tolls, fr*tmean), d; inner = isym,
-                     build_solver = bs, tol = ltol, nmax = lnmax, anderson = anderson, refresh = 1e9,
+                     build_solver = bs, tol = ltol, nmax = lnmax, anderson = anderson,
+                     refresh = homotopy_refresh, refresh_mode = homotopy_refresh_mode,
+                     active_thresh = homotopy_active_thresh, tlim = deadline - time(),
                      H = H, SC = SC, ST = ST, setups = setups, GG = GG)
             tot += res.steps
+            if polish_verbose
+                @printf("level=%-4d/%-4d steps=%-3d resid=%.2e setups=%-4d elapsed=%.1fs\n",
+                        i, length(dfracs), res.steps, res.residual, setups[], time()-t00)
+                flush(stdout)
+            end
         end
     end
     # Polish (cold) / warm solve: exact rectified law with Armijo energy. Accurate mode rebuilds adaptively
     # (→ machine precision); loose mode keeps the hierarchy frozen (→ ≈`itol`, "good enough" for design/scaling).
-    res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
-             energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
-             refresh = loose ? 1e9 : refresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG)
-    tot += res.steps
+    remaining = deadline - time()
+    # Polish rebuild policy: default keeps prior behavior (frozen in loose mode, `refresh` in accurate mode).
+    # `polish_refresh` overrides it — e.g. loose homotopy (cheap) + adaptive-rebuild polish (accurate final
+    # solve), decoupling the two so a stiff final exact-law solve isn't stuck on a stale hierarchy.
+    prefresh = polish_refresh === nothing ? (loose ? 1e9 : refresh) : polish_refresh
+    if remaining > 0
+        res = newton_flow!(x, Bn, rectified_law(N, tolls), d; inner = isym, build_solver = bs,
+                 energy = ue_energy(N, d, tolls), tol = tol, nmax = nmax, anderson = anderson,
+                 refresh = prefresh, H = H, SC = SC, ST = ST, setups = setups, GG = GG,
+                 refresh_mode = polish_refresh_mode, active_thresh = polish_active_thresh,
+                 verbose = polish_verbose, tlim = remaining)
+        tot += res.steps
+    elseif polish_verbose
+        println("  (tlim reached before polish — skipping)")
+    end
     f = zeros(N.m)
     @inbounds for a in 1:N.m; f[a] = rho(N, a, (x[N.ini[a]] - x[N.ter[a]]) - tolls[a])[1]; end
     x, f, tot, setups[]

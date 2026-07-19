@@ -31,7 +31,7 @@ calibration. It is nonconvex and \emph{NP}-hard, and every practical method solv
 whose each step requires a lower-level equilibrium solve together with an equilibrium sensitivity. The
 sensitivity has been computed since Tobin and Friesz (1988) by factorizing the equilibrium Jacobian once and
 back-substituting per design variable, so its cost is already independent of the number of design variables;
-the remaining bottleneck is that this factorization is cubic in the size of the active subnetwork, which caps
+the remaining bottleneck is that this factorization grows superlinearly (fill-dominated) in the size of the active subnetwork, which caps
 exact design methods near a hundred links while forward assignment reaches metropolitan scale.
 We remove that bottleneck. We show that the directed user equilibrium with separable costs is a
 source-form nonlinear Laplacian flow (NLF) $B\rho(B^\top\phi-\tau)=d$ whose Newton Jacobian, despite the
@@ -39,8 +39,18 @@ one-sided (rectified) edge law, remains a symmetric weighted graph Laplacian on 
 Consequently the whole solve---forward equilibrium and adjoint design gradient---reduces to a short
 sequence of near-linear Laplacian solves. The one obstacle, that the rectified dead zone makes the Jacobian
 ill-conditioned and its active set change during a solve, is handled by a smoothing homotopy in a dead-zone
-width $\delta$ that keeps the linearized system uniformly well conditioned, followed by a single exact-law
-polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and toll design reaches the exact marginal-cost optimum. The wall-clock scales near-linearly in the edge count while a direct factorization scales superlinearly, so on large irregular congestion networks NLF overtakes direct factorization at a crossover, and the design inherits this near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already near-optimal, NLF does not win; the advantage is on poorly-separable networks such as those modeling selfish routing. We extend the framework to the multicommodity logit stochastic user equilibrium, where a block preconditioner solves the coupled block-Laplacian Newton system in a handful of iterations and the design adjoint again returns all toll gradients in one solve; on the Sioux Falls and Anaheim road networks, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$. Code is available at \url{https://github.com/orenlivne/dnlf}.
+width $\delta$ whose fine schedule keeps each level a small, well-conditioned perturbation, followed by a
+single exact-law polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and
+toll design attains the marginal-cost optimum. The wall-clock scales near-linearly in the edge count while a
+direct factorization scales superlinearly, so on large irregular congestion networks NLF is uniformly faster
+with a widening margin and reaches sizes where a direct factorization is infeasible; the design inherits this
+near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already
+near-optimal, NLF does not win; the advantage is on poorly-separable networks such as those modeling selfish
+routing. We extend the framework to the multicommodity logit stochastic user equilibrium, where a
+block-diagonal preconditioner solves the coupled block-Laplacian Newton system in single- to low-double-digit
+iterations and the design adjoint again returns all toll gradients in one solve; on the Sioux Falls and Anaheim
+road networks, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$ (at a calibrated
+route-choice dispersion $\gamma$). Code is available at \url{https://github.com/orenlivne/dnlf}.
 }
 
 \KEYWORDS{network design; traffic assignment; user equilibrium; bilevel optimization; nonlinear Laplacian
@@ -70,7 +80,7 @@ loop where each iteration solves the lower-level equilibrium and then a sensitiv
 The design gradient itself is cheap in the number of design variables: since \citet{tobinfriesz1988}, $\nabla_\tau F$ is obtained by factorizing the equilibrium Jacobian \emph{once}
 and back-substituting one right-hand side per design variable, so its cost is independent of $k$ (an adjoint /
 implicit-function computation~\citep{jp2007,amos2017,blondel2022}). The bottleneck is that this
-factorization and the lower-level solve that precedes it are direct sparse factorizations whose cost is cubic in the active-path/subnetwork size, or a slowly converging Frank--Wolfe assignment. This
+factorization and the lower-level solve that precedes it are direct sparse factorizations whose cost grows superlinearly (fill-dominated) in the active-path/subnetwork size, or a slowly converging Frank--Wolfe assignment. This
 is why exact design methods in the literature stall near Sioux Falls scale ($76$ links) while origin-based
 forward assignment routinely reaches $40,000$--$75,000$ links~\citep{bargera2002,dial2006}. The gap
 between forward and design scalability is one to two orders of magnitude, and is purely a linear-algebra gap.
@@ -151,7 +161,7 @@ the present work extends it from the undirected relaxation to the directed (rect
 design (adjoint) problem.
 
 \section{The directed equilibrium is a nonlinear Laplacian flow}\label{sec:formulation}
-Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{h(a)}-e_{t(a)}$
+Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{t(a)}-e_{h(a)}$
 for arc $a$ from tail $t(a)$ to head $h(a)$. Separable BPR latencies are $t_a(f)=t^0_a\big(1+\beta_a(f/c_a)^{p_a}\big)$
 for $f\ge 0$. With node potentials $\phi$ (multipliers of conservation $Bf=d$) and toll $\tau_a\ge0$, the
 Karush--Kuhn--Tucker conditions of the Beckmann program $\min_{f\ge0,\,Bf=d}\sum_a\int_0^{f_a}(t_a(x)+\tau_a)\,dx$
@@ -346,9 +356,8 @@ larger floor ($10^{-6}$) biases the adjoint to a $5\%$ error.
 \subsection{Design Optimization}
 Projected-gradient toll design (\cref{alg:design}) reduces TSTT monotonically from $9.633\times10^5$ to
 $9.137\times10^5$, a $5.15\%$ reduction over $35$ accepted steps, with every equilibrium solved exactly
-(relative flow error $\sim10^{-9}$). This matches the exact optimum: a one-parameter sweep of scaled
-marginal-cost (Pigouvian) tolls bottoms out at $5.12\%$, confirming the gradient method finds the stationary
-point. Solving every equilibrium only to a loose $10^{-3}$ tolerance reaches the \emph{same} optimum (TSTT within
+(relative flow error $\sim10^{-9}$). This matches a scaled marginal-cost (Pigouvian) toll sweep, which bottoms out at $5.12\%$---indistinguishable
+from the gradient result to within the equilibrium-solve tolerance, confirming near-stationarity. Solving every equilibrium only to a loose $10^{-3}$ tolerance reaches the \emph{same} optimum (TSTT within
 $0.004\%$, tolls within $\|\Delta\tau\|=0.13$), confirming that the design gradient is insensitive to
 intermediate solve accuracy---so the faster loose-intermediate continuation costs nothing in design
 quality. The residual gap reflects where the loose tolerance was applied, not where it was measured: it fixes
@@ -361,20 +370,19 @@ multicommodity instances of \cref{sec:mc}.
 
 \paragraph{Design at scale.} The reviewer-facing question is not the size of any one TSTT reduction but whether
 the \emph{per-step} design cost stays near-linear far beyond the ${\sim}10^2$-link ceiling of exact
-sensitivity-analysis (SAB) methods, whose every step factorizes the equilibrium Jacobian (cubic in the active
-subnetwork). We answer it directly on the CAIDA router-level Internet graph ($n=190{,}914$, $m=1.22\times10^6$),
+sensitivity-analysis (SAB) methods, whose every step factorizes the equilibrium Jacobian (superlinearly, fill-dominated). We answer it directly on the CAIDA router-level Internet graph ($n=190{,}914$, $m=1.22\times10^6$),
 a genuine communication network in the paper's target regime. There the cold equilibrium solves in $149$~s, and
 each subsequent design step costs \emph{one} adjoint solve---which returns the gradient with respect to
 \emph{all} $1.22\times10^6$ tolls in $\mathbf{0.9}$~s via a single near-linear Laplacian solve
 (\cref{prop:adjoint})---plus \emph{one} warm equilibrium re-solve at ${\approx}30$~s. The adjoint and re-solve
-are the two operations an SAB step performs by cubic factorization; here both are near-linear, so a design
+are the two operations an SAB step performs by direct factorization; here both are near-linear, so a design
 iteration on a $1.2$-million-link network costs seconds, not the hours (or out-of-memory) a direct
 factorization at this size would require. The TSTT \emph{reduction} realized is instance-dependent (a function
 of the congestion regime) and is quantified on the calibrated road networks---$5.15\%$ on Sioux Falls above and
 $7.7$--$13.1\%$ on Anaheim (\cref{sec:mc}); the point here is that the machinery that produces those reductions
 runs, unchanged, three-to-four orders of magnitude larger than exact SAB design can reach.
 
-\subsection{Crossover on Size-Scaled Networks}
+\subsection{Widening Advantage on Size-Scaled Networks}
 On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$ equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$, while
 the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.48}$
 (\cref{tab:scaling}, \cref{fig:scaling}): each of the ${\sim}100$ inner solves is a fill-reducing sparse factorization (UMFPACK with
@@ -390,14 +398,19 @@ To confirm the near-linear exponent is a property of the method and not of the o
 the equilibrium solve across a topology-diverse corpus of $96$ real irregular graphs from the
 SuiteSparse/SNAP, LAW, DIMACS10, and Newman collections---autonomous-system, peer-to-peer, web-crawl,
 citation, collaboration, email, signed-social, and machine-learning $k$-nearest-neighbour graphs---spanning
-$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Timing was serial and uncontended. \emph{Every}
-instance converges: the equilibrium residual is at most $2.7\times10^{-3}$ (median $7.9\times10^{-5}$; $90$ of
-$96$ below $10^{-3}$, $23$ at machine precision), with the inner-engine setup count in $[47,330]$---bounded, and
-set by conditioning rather than size. The wall-clock fits $t\propto m^{1.10}$ over the full corpus and
-$t\propto m^{0.97}$ on the $m\ge10^5$ subset ($56$ graphs), where the size-independent per-solve overhead (a
-fixed continuation cost of ${\approx}30$~s) no longer flattens the low end---i.e.\ essentially linear in the
-regime where the asymptotics are visible, consistent with the $m^{1.17}$ of the controlled synthetic family
-(\cref{tab:scaling}). This corpus power law is descriptive, not a complexity proof: at a fixed size the solve
+$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Timing was serial and uncontended (single run;
+build-net seed fixed). Every instance reaches a relative residual below $10^{-2}$ within a fixed per-graph
+budget (median $7.9\times10^{-5}$; $90$ of $96$ below $10^{-3}$, $23$ at machine precision; the remaining $6$,
+the most hub-dominated crawls, stop at ${\sim}10^{-3}$), with the inner-engine setup count in $[47,330]$; that
+count correlates only weakly with size (log--log Pearson $r=0.20$), so it is driven by conditioning, not $m$.
+The full-corpus wall-clock fits $t\propto m^{1.10}$ (OLS on log--log; $95\%$ bootstrap CI $[1.02,1.20]$,
+$R^2=0.85$)---near-linear, mildly super-linear. Restricting to the $m\ge10^5$ subset ($56$ graphs) gives
+$0.97$ ($95\%$ CI $[0.81,1.16]$, straddling $1$), and a three-parameter additive-overhead fit
+$t=a\,m^{b}+c$ returns $b\approx0.8$ with $c\approx10$--$30$~s: a fixed continuation overhead flattens the
+low-$m$ points, so a single power law is an approximation and the sub-$1$ subset slope reflects that overhead
+amortizing, \emph{not} true sub-linear complexity (an $\Omega(m)$ task cannot be sub-linear asymptotically).
+The honest reading is a near-linear method with a fixed per-solve overhead, consistent with the $m^{1.17}$ of
+the controlled synthetic family (\cref{tab:scaling}). This corpus power law is descriptive, not a complexity proof: at a fixed size the solve
 time varies several-fold with conditioning (a hub-dominated web crawl can cost several times a same-size
 collaboration graph), which broadens the scatter, and the handful of instances above $10^{-3}$ are the most
 hub-dominated crawls, whose one-sided law induces a stiff near-null Jacobian mode (\cref{sec:solver}).
@@ -407,17 +420,18 @@ hub-dominated crawls, whose one-sided law induces a stiff near-null Jacobian mod
 \caption{Equilibrium solve time vs.\ edge count across a topology-diverse corpus of
 $96$ real irregular graphs (SuiteSparse/SNAP, LAW, DIMACS10, Newman; autonomous-system, peer-to-peer,
 web-crawl, citation, collaboration, email, signed-social, and machine-learning $k$-NN families) spanning
-$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Wall-clock fits $t\propto m^{1.10}$ over the full
-range and $t\propto m^{0.97}$ on the $m\ge10^5$ subset (where the fixed ${\approx}30$~s continuation overhead no
-longer flattens the low end), with a \emph{bounded} inner-engine setup count in $[47,330]$. Every instance
-converges (residual median $7.9\times10^{-5}$, max $2.7\times10^{-3}$)---a descriptive near-linear trend across
-real graphs of every family, not a complexity proof (\cref{sec:results}).}\label{fig:corpus}\end{figure}
+$1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Full-corpus wall-clock fits $t\propto m^{1.10}$
+($95\%$ bootstrap CI $[1.02,1.20]$, $R^2=0.85$); the dashed line is the $m\ge10^5$ subset ($m^{0.97}$), lower
+only because a fixed ${\approx}30$~s continuation overhead flattens the low-$m$ points (not true sub-linearity).
+Inner-engine setup count is $[47,330]$, weakly size-correlated ($r=0.20$). Residual median $7.9\times10^{-5}$,
+max $2.7\times10^{-3}$---a descriptive near-linear trend across real graphs of every family, not a complexity
+proof (\cref{sec:results}).}\label{fig:corpus}\end{figure}
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
 clean run on an Apple M5 Pro; every solve reaches a $10^{-9}$ residual. The two near-linear engines---LAMG$+$
 (default) and AC---vs.\ the direct sparse factorization. Both fit the
-same exponent, $m^{1.17}$ and track within a few percent; direct scales as $m^{1.48}$ and is slower across the
+same exponent, $m^{1.17}$ and agree to within ${\approx}1.5\times$ per point; direct scales as $m^{1.48}$ and is slower across the
 whole range. Direct is capped at $m\le4.5\times10^4$ (\emph{---}): the fine-continuation solve performs ${\sim}100$
 inner solves, each a full factorization here, whose fill-in exhausts RAM at larger $m$.}
 \label{tab:scaling}
@@ -434,7 +448,7 @@ $64{,}000$ & $639{,}950$ & $424.39$ & $449.99$ & \emph{---}\\\bottomrule
 \end{table}
 Bilevel toll design (\cref{alg:design}) therefore inherits a near-linear per-step cost on large irregular
 networks, in contrast with the superlinear per-step factorization of the sensitivity-analysis incumbents. On
-near-planar road networks the crossover does not occur at practical sizes---nested dissection is near-optimal
+near-planar road networks this advantage does not appear at practical sizes---nested dissection is near-optimal
 there---which is why we frame the advantage on the communication-network regime.
 
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
@@ -518,9 +532,9 @@ As $\gamma\to0$ the model tends to deterministic user equilibrium; we solve at a
 At a logit equilibrium the reduced Newton Jacobian in the stacked potentials $\Phi$ is
 \begin{equation}\label{eq:mcjac}
   J=\underbrace{\tfrac1\gamma\,\mathrm{blkdiag}_k\!\bigl(B\,\mathrm{diag}(f^k)\,B^\top\bigr)}_{K\ \text{per-commodity Laplacians}}
-   -\tfrac1{\gamma^2}\sum_a c_a\,(f_a f_a^\top)\otimes b_a b_a^\top,
+   -\tfrac1{\gamma^2}\sum_a c_a\,(\mathbf f_a \mathbf f_a^\top)\otimes b_a b_a^\top,
 \end{equation}
-where $\Phi=[\phi^1;\dots;\phi^K]$, $b_a=Be_a$, $f_a=(f^1_a,\dots,f^K_a)^\top$, and $c_a=t'_a/(1+t'_a f_a/\gamma)$. Each diagonal block is a symmetric weighted graph Laplacian;
+where $\Phi=[\phi^1;\dots;\phi^K]$, $b_a=Be_a$, $\mathbf f_a=(f^1_a,\dots,f^K_a)^\top$ (the per-commodity vector; the scalar total is $f_a=\sum_k f^k_a$), and $c_a=t'_a/(1+t'_a f_a/\gamma)$. Each diagonal block is a symmetric weighted graph Laplacian;
 the coupling is symmetric positive semidefinite and rank one per arc. For $K=1$, \cref{eq:mcjac} reduces, as
 $\gamma\to0$, to the single-commodity active Laplacian $B\,\mathrm{diag}(1/t'_a)\,B^\top$ of \cref{prop:laplacian}.
 \end{proposition}
@@ -531,7 +545,7 @@ the latter gives $\mathrm{d}f_a=(\gamma+t'_af_a)^{-1}\sum_l f^l_a\,\mathrm{d}g^l
 $\mathrm{d}g^k=B^\top\mathrm{d}\phi^k$, $\mathrm{d}R^k=-B\,\mathrm{d}f^k$ yields \cref{eq:mcjac}. Equivalently
 $J=\tilde B H^{-1}\tilde B^\top$ with $\tilde B=I_K\otimes B$ and per-arc flow-Hessian
 $H_a=t'_a\mathbf1\mathbf1^\top+\gamma\,\mathrm{diag}(1/f^k_a)$; Sherman--Morrison gives
-$H_a^{-1}=\tfrac1\gamma\mathrm{diag}(f^k_a)-\tfrac{c_a}{\gamma^2}f_af_a^\top$, and for $K=1$,
+$H_a^{-1}=\tfrac1\gamma\mathrm{diag}(f^k_a)-\tfrac{c_a}{\gamma^2}\mathbf f_a\mathbf f_a^\top$, and for $K=1$,
 $f_a/(\gamma+t'_af_a)\to1/t'_a$ as $\gamma\to0$. \qed
 \end{proof}
 
@@ -551,8 +565,9 @@ applicable even to a commodity that concentrates on few arcs. On the rare block 
 concentrated that nearly all arcs sit at the floor, leaving a near-disconnected, high-contrast Laplacian that
 Laplacians.jl's randomized elimination can zero-pivot on, which happens only in the cold far-from-equilibrium
 regime---we fall back to a direct solve; this changes only the preconditioner, not the PCG-converged solve. The
-inner count stays single-digit at and near equilibrium across all $\gamma$---the regime the warm-started design
-loop lives in (\cref{tab:mcdesign}). Only the \emph{cold} solve at small $\gamma$, far from equilibrium where
+inner count stays single-digit at and near equilibrium at the operating dispersion $\gamma\approx0.1$---the
+regime the warm-started synthetic design loop lives in (\cref{tab:mcdesign})---and low double-digit ($\le38$)
+on the small, heavily loaded road instances at their higher calibrated $\gamma$ (\cref{tab:mcreal}). Only the \emph{cold} solve at small $\gamma$, far from equilibrium where
 per-commodity flows concentrate into high-contrast blocks, is expensive, and that regime is approached only as
 $\gamma\to0$---a \emph{different}, harder model (deterministic multicommodity UE, with non-unique flows) already
 served by Frank--Wolfe. Since fixed $\gamma$ is a calibrated route-choice dispersion~\citep{fisk1980,daganzo1977},
@@ -573,10 +588,16 @@ per-step cost. Across a range of synthetic instances (varying $K$, $\gamma$,
 network size, and demand; \cref{tab:mcdesign}) the reduction is $1$--$2\%$ and the inner-iteration count stays
 single digit. On the two canonical TNTP road networks with their \emph{published} origin--destination matrices
 and BPR parameters---Sioux Falls ($n=24$, $m=76$, $K=24$ destination commodities) and Anaheim ($n=416$, $m=914$,
-$K=38$)---destination-bundled design reduces the real system travel time by $7.7$--$13.1\%$ (\cref{tab:mcreal}). Both
+$K=38$)---destination-bundled design reduces the real system travel time by $7.7$--$13.1\%$ (\cref{tab:mcreal}),
+at the higher dispersions $\gamma\in\{2,5\}$ these small over-saturated road instances require for a
+well-conditioned logit SUE (the $\gamma\approx0.1$ operating point of the size-independence study yields a
+stiffer block system on so few, so heavily loaded arcs); the reduction accordingly varies with $\gamma$ and
+should be read as a $\gamma$-dependent span, not a single design gain. Both
 networks are over-saturated at their full published demand (peak volume/capacity above $2.5$); the inner
-iteration count stays bounded and does not grow with size (consistent with the size-independence
-established on the synthetic family, \cref{tab:mc}). What sets the count is not size but the per-arc commodity coupling
+iteration count stays bounded and does not grow with size---though here it is low double digit ($12$--$38$),
+not single digit, again because higher $\gamma$ and heavy loading strain the block-diagonal preconditioner
+(consistent with the size-independence, but not the magnitude, of the synthetic family, \cref{tab:mc}). What
+sets the count is not size but the per-arc commodity coupling
 the block-diagonal preconditioner omits, which is significant only where arcs approach the BPR saturation knee:
 tiny, dense Sioux Falls at its over-saturated published demand forces most carrying arcs there, whereas Anaheim
 spreads flow so typical arcs stay clear of it. A budget-constrained (sparse-toll) design is a natural extension.
@@ -635,7 +656,7 @@ Anaheim     & $416$ & $914$ & $38$ & $5$ & $\phantom{0}7.7\%$  & $12$\\\bottomru
 We showed that the directed user equilibrium with separable costs is a nonlinear Laplacian flow whose Jacobian
 is a symmetric active-subgraph Laplacian, so a smoothing homotopy reduces the forward solve and the adjoint
 design gradient to a short sequence of near-linear Laplacian solves with a graph-size-independent number of
-multigrid setups; bilevel toll design inherits this near-linear per-step cost, in place of the cubic
+multigrid setups; bilevel toll design inherits this near-linear per-step cost, in place of the superlinear (fill-dominated)
 factorization of sensitivity-analysis methods.
 
 We are explicit about what this paper does \emph{not} yet establish. (i) \textbf{Multicommodity scope.}
@@ -708,7 +729,5 @@ Internet topology}, in Proc.\ ACM SIGCOMM, 1999, pp.~251--262.
 Proc.\ IEEE INFOCOM, 2000, pp.~519--528.
 \bibitem[Cole et al.(2003)]{cole2003} R.~Cole, Y.~Dodis, and T.~Roughgarden, \emph{Pricing network edges for heterogeneous selfish
 users}, in Proc.\ ACM STOC, 2003, pp.~521--530.
-\bibitem[Leskovec et al.(2007)]{leskovec2007} J.~Leskovec, J.~Kleinberg, and C.~Faloutsos, \emph{Graph evolution: densification and
-shrinking diameters}, ACM Trans.\ Knowledge Discovery from Data, 1 (2007), art.~2.
 \end{thebibliography}
 \end{document}

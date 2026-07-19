@@ -503,7 +503,7 @@ $2.4\times10^{-3}$ to $5.2\times10^{-2}$ on the stiffer real-topology instances.
 solution in flow but never to solve accuracy. The obstruction is fundamental, not a tuning artifact: heavy
 congestion makes the Beckmann Hessian severely ill-conditioned, and an accelerated first-order method still needs
 $\Theta(\sqrt{\kappa})$ iterations, so on the largest real instance (\texttt{as-caida}, $m=1.07\times10^5$)
-$300$\,s of FISTA reaches only $5.2\times10^{-2}$---five orders short of the Newton inner's $10^{-9}$. A first-order inner therefore has no fast, size-independent convergence on stiff
+$300$\,s of FISTA reaches only $5.2\times10^{-2}$---seven orders short of the Newton inner's $10^{-9}$. A first-order inner therefore has no fast, size-independent convergence on stiff
 equilibria, whereas the Newton inner does---which is why these methods are demonstrated only at small
 scale, and why replacing their inner solve is novel.
 

@@ -410,10 +410,11 @@ under the identical continuation with the same frozen-per-level discipline as th
 is the unsymmetric UMFPACK/COLAMD LU used by the sensitivity-analysis incumbents; because \cref{prop:laplacian}
 makes $J$ symmetric positive definite, we also run the \emph{fair, stronger} direct incumbent---a CHOLMOD
 supernodal Cholesky under a METIS nested-dissection ordering. Both are superlinear: UMFPACK fits $m^{1.41}$, and
-CHOLMOD$+$METIS $m^{1.25}$ overall ($m^{1.43}$ once the factorization dominates, $m\ge8\times10^4$). The
-nested-dissection Cholesky is indeed the stronger direct solver---faster than UMFPACK at every size ($147$ vs.\
-$273$~s at $m{=}1.6\times10^5$) and reaching twice as far before its memory wall---yet NLF is faster than
-\emph{both} across the whole tested range with a widening margin ($1.12\times$ the fair baseline at
+CHOLMOD$+$METIS $m^{1.24}$ overall ($m^{1.43}$ once the factorization dominates, $m\ge8\times10^4$). The
+nested-dissection Cholesky is the stronger direct solver---faster than UMFPACK at all but one (anomalous,
+$m{=}4\times10^4$) size ($147$ vs.\ $273$~s at $m{=}1.6\times10^5$) and reaching twice as far before its memory
+wall---yet NLF is faster than \emph{both} at every size beyond the smallest, setup-dominated point (where the
+three agree to within ${\approx}2\%$), with a margin that widens with $m$ ($1.12\times$ the fair baseline at
 $m{=}1.6\times10^5$, $1.79\times$ at $m{=}3.2\times10^5$). Decisively, both direct solvers exhaust RAM where NLF
 does not: UMFPACK at $m{\approx}3.2\times10^5$ and CHOLMOD$+$METIS at $m{\approx}6.4\times10^5$ (a segmentation
 fault inside the supernodal factorization's dense-block BLAS), while NLF completes $m{=}6.4\times10^5$ in
@@ -472,7 +473,7 @@ near-linear NLF engine (approximate Cholesky; the default LAMG$+$ tracks it with
 the two direct factorizations of the pinned Laplacian $J$: the unsymmetric UMFPACK/COLAMD LU, and the fair,
 stronger CHOLMOD supernodal Cholesky under a METIS nested-dissection ordering (\cref{prop:laplacian} makes $J$
 SPD). NLF fits $m^{1.17}$ and completes throughout; UMFPACK $m^{1.41}$, out of memory (\emph{OOM}) at
-$m{\approx}3.2\times10^5$; CHOLMOD$+$METIS $m^{1.25}$ overall ($m^{1.43}$ for $m\ge8\times10^4$), reaching twice as
+$m{\approx}3.2\times10^5$; CHOLMOD$+$METIS $m^{1.24}$ overall ($m^{1.43}$ for $m\ge8\times10^4$), reaching twice as
 far before \emph{OOM} at $m{\approx}6.4\times10^5$. The fair direct baseline is superlinear and hits a memory wall
 where NLF does not.}
 \label{tab:scaling}
@@ -496,7 +497,7 @@ there---which is why we frame the advantage on the communication-network regime.
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
 \caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: near-linear NLF
 ($m^{1.17}$) vs.\ the two direct factorizations of the SPD Laplacian---UMFPACK/COLAMD ($m^{1.41}$) and the fair,
-stronger CHOLMOD$+$METIS ($m^{1.25}$)---each of which exhausts memory (dotted walls) where NLF continues
+stronger CHOLMOD$+$METIS ($m^{1.24}$)---each of which exhausts memory (dotted walls) where NLF continues
 (\cref{tab:scaling}).}\label{fig:scaling}\end{figure}
 
 \subsection{Comparison with Differentiable-Bilevel (First-Order) Solvers}

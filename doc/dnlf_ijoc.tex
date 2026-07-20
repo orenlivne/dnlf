@@ -743,7 +743,12 @@ We are explicit about what this paper does \emph{not} yet establish. (i) \textbf
 $\gamma\to0$ deterministic limit, a distinct model (non-unique per-commodity flows) already served by
 Frank--Wolfe. The multicommodity design is demonstrated at road-network scale (Sioux Falls, Anaheim); the
 metropolitan-scale design demonstration (\cref{sec:design}) is single-commodity, so a multicommodity design at
-that scale remains to be shown. (ii) \textbf{Accuracy on the most hub-dominated graphs.} On a handful of extreme hub graphs (dense web crawls)
+that scale remains to be shown. Reaching many commodities is limited by the $\mathcal{O}(Km)$ cost of the $K$
+per-commodity block solves per step; since the commodities couple only through the low-rank, shared-arc
+congestion term (\cref{prop:mc}), a promising direction is to aggregate destinations of similar arc-footprint
+into $K'\ll K$ \emph{super-commodities} used as a deflation space for the block-Newton system, reducing the
+effective block-solve count toward the numerical rank of the coupling where footprints cluster (to be assessed
+against specialized multicommodity interior-point solvers~\citep{castro2000}). (ii) \textbf{Accuracy on the most hub-dominated graphs.} On a handful of extreme hub graphs (dense web crawls)
 the one-sided law induces a stiff near-null Jacobian mode that the adaptive-polish solve resolves only to
 $\sim10^{-3}$ within budget rather than machine precision (\cref{sec:solver}); this suffices for design (which
 needs $\sim10^{-3}$) but a mode-deflating polish is future work. (iii) \textbf{One hierarchy across design steps.} Each exact
@@ -767,6 +772,8 @@ Mathematics of Operations Research, 14 (1989), pp.~410--432.
 \bibitem[Lawphongpanich and Hearn(2004)]{lawphongpanich2004} S.~Lawphongpanich and D.~W.~Hearn, \emph{An MPEC approach to second-best toll pricing},
 Mathematical Programming, 101 (2004), pp.~33--55.
 \bibitem[Yang and Huang(2005)]{yanghuang2005} H.~Yang and H.-J.~Huang, \emph{Mathematical and Economic Theory of Road Pricing}, Elsevier, 2005.
+\bibitem[Castro(2000)]{castro2000} J.~Castro, \emph{A specialized interior-point algorithm for multicommodity network flows},
+SIAM Journal on Optimization, 10 (2000), pp.~852--877.
 \bibitem[Gairing et al.(2017)]{gairing2017} M.~Gairing, T.~Harks, and M.~Klimm, \emph{Complexity and approximation of the continuous
 network design problem}, SIAM Journal on Optimization, 27 (2017), pp.~1554--1582.
 \bibitem[Hoefer et al.(2008)]{hoefer2008} M.~Hoefer, L.~Olbrich, and A.~Skopalik, \emph{Taxing subnetworks}, in Proc.\ WINE, 2008,

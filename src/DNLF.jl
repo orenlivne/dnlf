@@ -62,7 +62,7 @@ function load_tntp_trips(path)
             occursin("END OF METADATA", s) && (meta = false; od = zeros(zones, zones))
             continue
         end
-        isempty(s) && continue
+        (isempty(s) || startswith(s, "~")) && continue     # skip blank + `~` comment lines (e.g. ChicagoSketch's post-metadata Date)
         if startswith(s, "Origin")
             orig = parse(Int, split(s)[2]); continue
         end

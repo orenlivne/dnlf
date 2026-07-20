@@ -42,8 +42,8 @@ ill-conditioned and its active set change during a solve, is handled by a smooth
 width $\delta$ whose fine schedule keeps each level a small, well-conditioned perturbation, followed by a
 single exact-law polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and
 toll design matches the best scaled marginal-cost (Pigouvian) toll to within near-stationarity. The wall-clock scales near-linearly in the edge count while both direct factorizations we test---an unsymmetric LU and the fair, stronger
-nested-dissection Cholesky (CHOLMOD$+$METIS)---scale superlinearly, so on large irregular congestion networks NLF is uniformly faster
-with a widening margin and reaches sizes where direct factorization exhausts memory; the design inherits this
+nested-dissection Cholesky (CHOLMOD$+$METIS)---scale superlinearly, so on large irregular congestion networks NLF is faster
+beyond a small setup-dominated crossover, by a margin set by the exponent gap, and reaches sizes where direct factorization exhausts memory; the design inherits this
 near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already
 near-optimal, NLF does not win; the advantage is on poorly-separable networks such as those modeling selfish
 routing. We extend the framework to the multicommodity logit stochastic user equilibrium, where a
@@ -138,9 +138,11 @@ total) is an open problem (\cref{sec:conclusion}).
 \subsection{Related work}\label{sec:related}
 \paragraph{Bilevel network design and sensitivity.}
 CNDP and second-best tolling are bilevel/MPEC problems, nonconvex and \emph{NP}-hard~\citep{gairing2017,hoefer2008};
-surveys~\citep{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods. Equilibrium sensitivity
-originates with \citet{tobinfriesz1988} and was sharpened by Qiu and Magnanti and by Patriksson
-and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itself a linearized equilibrium solve.
+surveys~\citep{farahani2013} catalog SAB descent, MPEC, and metaheuristic methods, with second-best tolling
+treated by \citet{lawphongpanich2004} and the economic theory of road pricing by \citet{yanghuang2005}.
+Equilibrium sensitivity originates with \citet{tobinfriesz1988} and was sharpened by \citet{qiumagnanti1989}
+and by Patriksson and co-authors~\citep{jp2007}, who observed that the sensitivity problem is itself a
+linearized equilibrium solve.
 Our adjoint \cref{eq:adjoint} is precisely that observation; the novelty here is not the $k$-independent gradient
 but the \emph{near-linear} operator that computes it and the forward solve. The same bilevel problem is studied
 in algorithmic game theory as optimal tolling and Stackelberg routing to reduce the price of anarchy of a
@@ -163,7 +165,7 @@ design (adjoint) problem.
 
 \section{The directed equilibrium is a nonlinear Laplacian flow}\label{sec:formulation}
 Let $B\in\R^{n\times m}$ be the node--arc incidence matrix of the directed network, $B_{\cdot a}=e_{t(a)}-e_{h(a)}$
-for arc $a$ from tail $t(a)$ to head $h(a)$. Separable BPR latencies are $t_a(f)=t^0_a\big(1+\beta_a(f/c_a)^{p_a}\big)$
+for arc $a$ from tail $t(a)$ to head $h(a)$. Separable BPR latencies are $t_a(f)=t^0_a\big(1+\beta_a(f/\kappa_a)^{p_a}\big)$
 for $f\ge 0$. With node potentials $\phi$ (multipliers of conservation $Bf=d$) and toll $\tau_a\ge0$, the
 Karush--Kuhn--Tucker conditions of the Beckmann program $\min_{f\ge0,\,Bf=d}\sum_a\int_0^{f_a}(t_a(x)+\tau_a)\,dx$
 give the \emph{rectified} edge law
@@ -240,7 +242,7 @@ smoothed conductance) the one-sided law drives the active-subgraph Laplacian nea
 low-rank near-null mode (condition number ${\sim}10^{12}$; its eigenvector is essentially uniform over the
 offending cluster, which we verified by inverse power iteration)---on which a frozen tight solve stalls short of
 tolerance. Rebuilding the hierarchy adaptively during the polish, whenever the residual ceases to fall, clears
-the stall. The corpus study (\cref{sec:results}) uses this loose-homotopy, adaptive-polish combination: it
+the stall. The corpus study (\cref{sec:corpus}) uses this loose-homotopy, adaptive-polish combination: it
 converges \emph{every} one of $96$ real graphs (median residual $8\times10^{-5}$; only the most hub-dominated
 crawls stop at ${\sim}10^{-3}$ within budget), at the cost of a modestly larger, conditioning-dependent setup
 count. A mode-deflating polish that would restore machine precision on those few graphs is future work.
@@ -380,8 +382,10 @@ within the $\sim10^{-6}$ second-order neighborhood of stationarity. The reductio
 multicommodity instances of \cref{sec:mc}.
 
 \paragraph{Design at scale.} Exact sensitivity-analysis (SAB) design factorizes the equilibrium Jacobian at
-every step (superlinearly, fill-dominated), capping it near ${\sim}10^2$ links in the reported
-literature~\citep{tobinfriesz1988,jp2007,chiou2005}; the question is whether the
+every step (superlinearly, fill-dominated). The reported literature~\citep{tobinfriesz1988,jp2007,chiou2005} caps
+this near ${\sim}10^2$ links, but the operative modern bound is the memory wall of the fill itself: even the fair
+CHOLMOD$+$METIS factorization we measure in \cref{sec:results} exhausts RAM at $m{\approx}6.4\times10^5$. The
+question is whether the
 \emph{full} design loop of \cref{alg:design}---not merely one gradient---runs at metropolitan-communication
 scale. We run it to convergence on the \texttt{p2p-Gnutella31} overlay ($n=62{,}561$, $m=2.96\times10^5$; $324\times$
 Anaheim's link count), a graph in the paper's selfish-overlay-routing regime, at a demand calibrated to
@@ -413,12 +417,14 @@ supernodal Cholesky under a METIS nested-dissection ordering. Both are superline
 CHOLMOD$+$METIS $m^{1.24}$ overall ($m^{1.43}$ once the factorization dominates, $m\ge8\times10^4$). The
 nested-dissection Cholesky is the stronger direct solver---faster than UMFPACK at all but one (anomalous,
 $m{=}4\times10^4$) size ($147$ vs.\ $273$~s at $m{=}1.6\times10^5$) and reaching twice as far before its memory
-wall---yet NLF is faster than \emph{both} at every size beyond the smallest, setup-dominated point (where the
-three agree to within ${\approx}2\%$), with a margin that widens with $m$ ($1.12\times$ the fair baseline at
-$m{=}1.6\times10^5$, $1.79\times$ at $m{=}3.2\times10^5$). Decisively, both direct solvers exhaust RAM where NLF
+wall---yet NLF is faster than \emph{both} beyond the smallest, setup-dominated point (where the
+three agree to within ${\approx}2\%$); the margin over the fair baseline is $1.12\times$ at $m{=}1.6\times10^5$ and
+$1.79\times$ at $m{=}3.2\times10^5$, though the latter is inflated by single-run variance at the largest sizes (the
+multi-seed exponent spread is $[1.06,1.23]$, below), so the decisive evidence is the exponent gap---near-linear
+vs.\ $m^{1.43}$---and the memory wall, not the point margin. Both direct solvers exhaust RAM where NLF
 does not: UMFPACK at $m{\approx}3.2\times10^5$ and CHOLMOD$+$METIS at $m{\approx}6.4\times10^5$ (a segmentation
 fault inside the supernodal factorization's dense-block BLAS), while NLF completes $m{=}6.4\times10^5$ in
-${\approx}730$~s and scales to $6\times10^6$ arcs on the corpus (\cref{sec:results}). The near-linear-vs.-superlinear
+${\approx}730$~s and scales to $6\times10^6$ arcs on the corpus (\cref{sec:corpus}). The near-linear-vs.-superlinear
 separation and the memory wall are therefore properties of the fill on these weak-separator graphs, not artifacts
 of the COLAMD ordering: the fair nested-dissection Cholesky shifts the wall out by one size doubling but does not
 remove it.
@@ -426,20 +432,20 @@ The near-linear exponent is inherited from the inner solve, not the outer iterat
 (${\approx}1600$), inner-engine setups (${\approx}100$, one AMG build per fine $\delta$-level), and per-step Jacobian assembly are
 all size-independent, so the wall-clock reflects a single near-linear inner solve, ${\approx}m^{1.17}$. Across
 three random-graph seeds the synthetic exponent has median $1.14$ and range $[1.06,1.23]$, bracketing this single
-run and consistent with the $96$-graph corpus fit $t\propto m^{1.10}$ (\cref{sec:results}; bootstrap CI
+run and consistent with the $96$-graph corpus fit $t\propto m^{1.10}$ (\cref{sec:corpus}; bootstrap CI
 $[1.02,1.20]$); the run-to-run spread reflects single-machine memory-bandwidth variance at the largest sizes, so
 the exponent is a wall-clock measurement rather than a complexity constant, and the corpus fit is the primary
 near-linearity evidence. The two graph Laplacian engines are
-interchangeable; we use LAMG$+$ by default for its robustness on large graph instances (\cref{tab:scaling}).
+interchangeable; we use LAMG$+$ by default for its robustness on large graph instances.
 
-\subsection{Corpus Scaling}
+\subsection{Corpus Scaling}\label{sec:corpus}
 To confirm the near-linear exponent is a property of the method and not of the one size-scaled family, we time
 the equilibrium solve across a topology-diverse corpus of $96$ real irregular graphs from the
 SuiteSparse/SNAP, LAW, DIMACS10, and Newman collections---autonomous-system, peer-to-peer, web-crawl,
 citation, collaboration, email, signed-social, and machine-learning $k$-nearest-neighbour graphs---spanning
 $1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Timing was serial and uncontended (single run;
 build-net seed fixed). Every instance reaches a relative residual below $10^{-2}$ within a fixed per-graph
-budget (median $7.9\times10^{-5}$; $90$ of $96$ below $10^{-3}$, $23$ at machine precision; the remaining $6$,
+budget (median $7.3\times10^{-5}$; $90$ of $96$ below $10^{-3}$, $23$ below $10^{-6}$; the remaining $6$,
 the most hub-dominated crawls, stop at ${\sim}10^{-3}$), with the inner-engine setup count in $[47,330]$; that
 count correlates only weakly with size (log--log Pearson $r=0.20$), so it is driven by conditioning, not $m$.
 The full-corpus wall-clock fits $t\propto m^{1.10}$ (OLS on log--log; $95\%$ bootstrap CI $[1.02,1.20]$,
@@ -462,7 +468,7 @@ web-crawl, citation, collaboration, email, signed-social, and machine-learning $
 $1.1\times10^4$ to $6.0\times10^6$ arcs ($2.74$ decades). Full-corpus wall-clock fits $t\propto m^{1.10}$
 ($95\%$ bootstrap CI $[1.02,1.20]$, $R^2=0.85$); the dashed line is the $m\ge10^5$ subset ($m^{0.97}$), lower
 only because a fixed ${\approx}30$~s continuation overhead flattens the low-$m$ points (not true sub-linearity).
-Inner-engine setup count is $[47,330]$, weakly size-correlated ($r=0.20$). Residual median $7.9\times10^{-5}$,
+Inner-engine setup count is $[47,330]$, weakly size-correlated ($r=0.20$). Residual median $7.3\times10^{-5}$,
 max $2.7\times10^{-3}$---a descriptive near-linear trend across real graphs of every family, not a complexity
 proof (\cref{sec:results}).}\label{fig:corpus}\end{figure}
 
@@ -756,6 +762,11 @@ Transportation Science, 22 (1988), pp.~242--250.
 application to bilevel optimization in network design}, Transportation Research Part B, 41 (2007), pp.~4--31.
 \bibitem[Chiou(2005)]{chiou2005} S.-W.~Chiou, \emph{Bilevel programming for the continuous transport network design problem},
 Transportation Research Part B, 39 (2005), pp.~361--383.
+\bibitem[Qiu and Magnanti(1989)]{qiumagnanti1989} Y.~Qiu and T.~L.~Magnanti, \emph{Sensitivity analysis for variational inequalities defined on polyhedral sets},
+Mathematics of Operations Research, 14 (1989), pp.~410--432.
+\bibitem[Lawphongpanich and Hearn(2004)]{lawphongpanich2004} S.~Lawphongpanich and D.~W.~Hearn, \emph{An MPEC approach to second-best toll pricing},
+Mathematical Programming, 101 (2004), pp.~33--55.
+\bibitem[Yang and Huang(2005)]{yanghuang2005} H.~Yang and H.-J.~Huang, \emph{Mathematical and Economic Theory of Road Pricing}, Elsevier, 2005.
 \bibitem[Gairing et al.(2017)]{gairing2017} M.~Gairing, T.~Harks, and M.~Klimm, \emph{Complexity and approximation of the continuous
 network design problem}, SIAM Journal on Optimization, 27 (2017), pp.~1554--1582.
 \bibitem[Hoefer et al.(2008)]{hoefer2008} M.~Hoefer, L.~Olbrich, and A.~Skopalik, \emph{Taxing subnetworks}, in Proc.\ WINE, 2008,

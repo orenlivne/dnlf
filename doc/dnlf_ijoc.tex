@@ -41,9 +41,9 @@ sequence of near-linear Laplacian solves. The one obstacle, that the rectified d
 ill-conditioned and its active set change during a solve, is handled by a smoothing homotopy in a dead-zone
 width $\delta$ whose fine schedule keeps each level a small, well-conditioned perturbation, followed by a
 single exact-law polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and
-toll design matches the best scaled marginal-cost (Pigouvian) toll to within near-stationarity. The wall-clock scales near-linearly in the edge count while a
-direct factorization scales superlinearly, so on large irregular congestion networks NLF is uniformly faster
-with a widening margin and reaches sizes where a direct factorization is infeasible; the design inherits this
+toll design matches the best scaled marginal-cost (Pigouvian) toll to within near-stationarity. The wall-clock scales near-linearly in the edge count while both direct factorizations we test---an unsymmetric LU and the fair, stronger
+nested-dissection Cholesky (CHOLMOD$+$METIS)---scale superlinearly, so on large irregular congestion networks NLF is uniformly faster
+with a widening margin and reaches sizes where direct factorization exhausts memory; the design inherits this
 near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already
 near-optimal, NLF does not win; the advantage is on poorly-separable networks such as those modeling selfish
 routing. We extend the framework to the multicommodity logit stochastic user equilibrium, where a
@@ -346,8 +346,9 @@ equilibrium solve by \cref{alg:solve}, yields a monotone design method (\cref{al
 \section{Numerical results}\label{sec:results}
 We refer to our directed-equilibrium solver (\cref{alg:solve}, a smoothing-homotopy continuation with a near-linear inner engine) as NLF throughout.
 We use the Sioux Falls benchmark ($n=24$, $m=76$) and size-scaled grid networks. The inner engine is
-LAMG$+$~\citep{lamgplus} by default; AC~\citep{kyngsachdeva2016} is interchangeable (the two
-fit the same $m^{1.17}$ scaling; \cref{tab:scaling}).
+LAMG$+$~\citep{lamgplus} by default; AC~\citep{kyngsachdeva2016} is interchangeable, tracking it within
+${\approx}1.5\times$ and fitting the same near-linear scaling (the direct-baseline head-to-head in
+\cref{tab:scaling} times AC).
 
 \subsection{Correctness of the Equilibrium}
 On a congested Sioux Falls instance ($29$ active arcs, flow split across paths) \cref{alg:solve} matches an
@@ -402,16 +403,24 @@ here, so this is a linear-algebra-kernel comparison (near-linear vs.\ superlinea
 head-to-head.
 
 \subsection{Widening Advantage on Size-Scaled Networks}
-On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$ equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$, while
-the same continuation with a direct sparse-factorization inner solve scales superlinearly, $t\propto m^{1.48}$
-(\cref{tab:scaling}, \cref{fig:scaling}): each of the ${\sim}100$ inner solves is a fill-reducing sparse factorization (UMFPACK with
-COLAMD ordering) whose fill-in grows faster than the graph on a poorly-separable topology. NLF is faster than the direct baseline across the whole tested range, with a widening margin---$1.7\times$ at $m=4\times10^4$ ($20$ vs.\ $33$~s)---and it reaches
-$m=6.4\times10^5$ in ${\approx}424$~s, where a direct factorization is infeasible: on our workstation the random-graph fill-in exhausts RAM.
-The direct baseline uses UMFPACK with COLAMD, an unsymmetric multifrontal solver, whereas $J$ is symmetric
-positive semidefinite; a supernodal Cholesky under nested dissection (CHOLMOD$+$METIS) would lower the constant
-and push the RAM ceiling out, shifting the crossover point. It would not, however, remove the asymptotic
-separation: on poorly-separable topologies nested dissection has weak vertex separators, so Cholesky fill still
-grows superlinearly, and the near-linear-vs.-superlinear gap is a property of the fill, not of the ordering.
+On size-scaled irregular (poorly-separable) congested networks the fine-continuation solve reaches a $10^{-9}$
+equilibrium residual with a wall-clock that scales near-linearly, $t\propto m^{1.17}$ (\cref{tab:scaling},
+\cref{fig:scaling}). We compare against \emph{two} direct factorizations of the pinned Laplacian $J$, each run
+under the identical continuation with the same frozen-per-level discipline as the multigrid hierarchy. The first
+is the unsymmetric UMFPACK/COLAMD LU used by the sensitivity-analysis incumbents; because \cref{prop:laplacian}
+makes $J$ symmetric positive definite, we also run the \emph{fair, stronger} direct incumbent---a CHOLMOD
+supernodal Cholesky under a METIS nested-dissection ordering. Both are superlinear: UMFPACK fits $m^{1.41}$, and
+CHOLMOD$+$METIS $m^{1.25}$ overall ($m^{1.43}$ once the factorization dominates, $m\ge8\times10^4$). The
+nested-dissection Cholesky is indeed the stronger direct solver---faster than UMFPACK at every size ($147$ vs.\
+$273$~s at $m{=}1.6\times10^5$) and reaching twice as far before its memory wall---yet NLF is faster than
+\emph{both} across the whole tested range with a widening margin ($1.12\times$ the fair baseline at
+$m{=}1.6\times10^5$, $1.79\times$ at $m{=}3.2\times10^5$). Decisively, both direct solvers exhaust RAM where NLF
+does not: UMFPACK at $m{\approx}3.2\times10^5$ and CHOLMOD$+$METIS at $m{\approx}6.4\times10^5$ (a segmentation
+fault inside the supernodal factorization's dense-block BLAS), while NLF completes $m{=}6.4\times10^5$ in
+${\approx}730$~s and scales to $6\times10^6$ arcs on the corpus (\cref{sec:results}). The near-linear-vs.-superlinear
+separation and the memory wall are therefore properties of the fill on these weak-separator graphs, not artifacts
+of the COLAMD ordering: the fair nested-dissection Cholesky shifts the wall out by one size doubling but does not
+remove it.
 The near-linear exponent is inherited from the inner solve, not the outer iteration: the total chord-Newton step count
 (${\approx}1600$), inner-engine setups (${\approx}100$, one AMG build per fine $\delta$-level), and per-step Jacobian assembly are
 all size-independent, so the wall-clock reflects a single near-linear inner solve, ${\approx}m^{1.17}$. Across
@@ -458,21 +467,25 @@ proof (\cref{sec:results}).}\label{fig:corpus}\end{figure}
 
 \begin{table}[t]\centering
 \caption{Equilibrium solve time (s) on size-scaled irregular congested networks (random degree-5 graphs), one
-clean run on an Apple M5 Pro; every solve reaches a $10^{-9}$ residual. The two near-linear engines---LAMG$+$
-(default) and AC---vs.\ the direct sparse factorization. Both fit the
-same exponent, $m^{1.17}$ and agree to within ${\approx}1.5\times$ per point; direct scales as $m^{1.48}$ and is slower across the
-whole range. Direct is capped at $m\le4\times10^4$ (\emph{---}): the fine-continuation solve performs ${\sim}100$
-inner solves, each a full factorization here, whose fill-in exhausts RAM at larger $m$.}
+clean same-run head-to-head on an Apple M5 Pro; every completed solve reaches a $10^{-9}$ residual. The
+near-linear NLF engine (approximate Cholesky; the default LAMG$+$ tracks it within ${\approx}1.5\times$) against
+the two direct factorizations of the pinned Laplacian $J$: the unsymmetric UMFPACK/COLAMD LU, and the fair,
+stronger CHOLMOD supernodal Cholesky under a METIS nested-dissection ordering (\cref{prop:laplacian} makes $J$
+SPD). NLF fits $m^{1.17}$ and completes throughout; UMFPACK $m^{1.41}$, out of memory (\emph{OOM}) at
+$m{\approx}3.2\times10^5$; CHOLMOD$+$METIS $m^{1.25}$ overall ($m^{1.43}$ for $m\ge8\times10^4$), reaching twice as
+far before \emph{OOM} at $m{\approx}6.4\times10^5$. The fair direct baseline is superlinear and hits a memory wall
+where NLF does not.}
 \label{tab:scaling}
 \begin{tabular}{rrrrr}\toprule
-$n$ & $m$ & LAMG$+$ & AC & direct\\\midrule
-$1{,}000$  & $9{,}964$   & $3.68$   & $3.88$   & $4.20$\\
-$2{,}000$  & $19{,}946$  & $10.43$  & $9.75$   & $12.67$\\
-$4{,}000$  & $39{,}952$  & $19.71$  & $19.97$  & $32.88$\\
-$8{,}000$  & $79{,}936$  & $46.10$  & $45.09$  & \emph{---}\\
-$16{,}000$ & $159{,}954$ & $117.06$ & $180.62$ & \emph{---}\\
-$32{,}000$ & $319{,}952$ & $281.88$ & $237.31$ & \emph{---}\\
-$64{,}000$ & $639{,}950$ & $424.39$ & $449.99$ & \emph{---}\\\bottomrule
+$n$ & $m$ & NLF & UMFPACK & CHOLMOD\\
+    &     & (near-linear) & $+$COLAMD & $+$METIS\\\midrule
+$1{,}000$  & $9{,}964$   & $4.82$   & $4.80$     & $4.74$\\
+$2{,}000$  & $19{,}946$  & $11.16$  & $11.68$    & $11.29$\\
+$4{,}000$  & $39{,}952$  & $22.80$  & $27.45$    & $39.03$\\
+$8{,}000$  & $79{,}936$  & $52.04$  & $63.12$    & $54.96$\\
+$16{,}000$ & $159{,}954$ & $131.32$ & $273.26$   & $147.07$\\
+$32{,}000$ & $319{,}952$ & $224.10$ & \emph{OOM} & $400.21$\\
+$64{,}000$ & $639{,}950$ & $727.01$ & \emph{OOM} & \emph{OOM}\\\bottomrule
 \end{tabular}
 \end{table}
 Bilevel toll design (\cref{alg:design}) therefore inherits a near-linear per-step cost on large irregular
@@ -481,9 +494,9 @@ near-planar road networks this advantage does not appear at practical sizes---ne
 there---which is why we frame the advantage on the communication-network regime.
 
 \begin{figure}\centering\includegraphics[width=.62\linewidth]{dnlf_scaling.pdf}
-\caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: the two near-linear
-engines LAMG$+$ and AC both fit $m^{1.17}$, vs.\ superlinear direct
-factorization ($m^{1.48}$), and are always faster across the range
+\caption{Equilibrium solve time vs.\ edge count on size-scaled irregular congested networks: near-linear NLF
+($m^{1.17}$) vs.\ the two direct factorizations of the SPD Laplacian---UMFPACK/COLAMD ($m^{1.41}$) and the fair,
+stronger CHOLMOD$+$METIS ($m^{1.25}$)---each of which exhausts memory (dotted walls) where NLF continues
 (\cref{tab:scaling}).}\label{fig:scaling}\end{figure}
 
 \subsection{Comparison with Differentiable-Bilevel (First-Order) Solvers}
@@ -535,8 +548,9 @@ macOS~26.5. The test networks are the TNTP Sioux Falls and Anaheim instances wit
 OD matrices (shipped with the code) and public Internet AS / P2P-overlay graphs (e.g.\ \texttt{as-caida},
 \texttt{Oregon-1}, \texttt{p2p-Gnutella}) from the SuiteSparse/SNAP collection.
 \Cref{tab:repro} pins every solver parameter to a symbol and a repository flag; the package \texttt{Manifest}
-pins all software versions (Julia, \texttt{Laplacians.jl} for approximate Cholesky, LAMG$+$, and
-UMFPACK/COLAMD for the direct baseline). The synthetic instances (\cref{tab:scaling,tab:baseline,tab:mcdesign})
+pins all software versions (Julia, \texttt{Laplacians.jl} for approximate Cholesky, LAMG$+$, and the two direct
+baselines---UMFPACK/COLAMD and CHOLMOD with a \texttt{Metis.jl} nested-dissection ordering, \texttt{inner=:lu}
+and \texttt{:cholmod}; the head-to-head is \texttt{scaling\_cholmod.jl}). The synthetic instances (\cref{tab:scaling,tab:baseline,tab:mcdesign})
 use random degree-$5$ graphs and a demand of $\lceil n/8\rceil$ random source/sink pairs scaled to a fixed
 total, all under the fixed seed of \cref{tab:repro}; each corpus instance places the same synthetic demand and
 BPR parameters on the real topology (so \cref{fig:corpus} times a fixed, documented congestion problem, not an

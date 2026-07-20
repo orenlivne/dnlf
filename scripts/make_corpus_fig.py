@@ -24,31 +24,35 @@ p, a = fit(ms, ts)
 big = ms >= 1e5
 pb, ab = fit(ms[big], ts[big])                       # large-graph subset (overhead-free) fit
 
-# color by topology family (group prefix, with SNAP sub-categorized)
+# B/W-printable: distinguish topology family by MARKER SHAPE (not color); group prefix, SNAP sub-categorized
+MARKERS = {"ML $k$-NN": "P", "web crawl": "^", "collaboration / AS": "s", "citation / co-author": "D",
+           "synthetic scale-free": "*", "AS / routing": "o", "P2P overlay": "v",
+           "email / Q&A / wiki": "X", "social / citation": "<", "other": "h"}
 def fam(nm):
     grp, s = nm.split("__", 1) if "__" in nm else ("", nm)
-    if grp == "ML_Graph":   return ("ML $k$-NN", "#8c564b")
-    if grp == "LAW":        return ("web crawl", "#e377c2")
-    if grp == "Newman":     return ("collaboration / AS", "#2ca02c")
-    if grp == "Barabasi" or grp == "Gleich": return ("web crawl", "#e377c2")
+    if grp == "ML_Graph":   return ("ML $k$-NN", MARKERS["ML $k$-NN"])
+    if grp == "LAW":        return ("web crawl", MARKERS["web crawl"])
+    if grp == "Newman":     return ("collaboration / AS", MARKERS["collaboration / AS"])
+    if grp == "Barabasi" or grp == "Gleich": return ("web crawl", MARKERS["web crawl"])
     if grp == "DIMACS10":
-        if s.startswith(("coAuthors", "citation")): return ("citation / co-author", "#17becf")
-        return ("synthetic scale-free", "#bcbd22")
+        if s.startswith(("coAuthors", "citation")): return ("citation / co-author", MARKERS["citation / co-author"])
+        return ("synthetic scale-free", MARKERS["synthetic scale-free"])
     # SNAP
-    if s.startswith(("as-", "Oregon", "caida")): return ("AS / routing", "#1f77b4")
-    if s.startswith("p2p"):            return ("P2P overlay", "#ff7f0e")
-    if s.startswith("ca-"):            return ("collaboration / AS", "#2ca02c")
-    if s.startswith(("email", "wiki", "sx", "College")): return ("email / Q&A / wiki", "#9467bd")
-    if s.startswith(("web", "cnr")):   return ("web crawl", "#e377c2")
-    if s.startswith(("soc", "loc", "cit", "com", "amazon")): return ("social / citation", "#d62728")
-    return ("other", "#7f7f7f")
+    if s.startswith(("as-", "Oregon", "caida")): return ("AS / routing", MARKERS["AS / routing"])
+    if s.startswith("p2p"):            return ("P2P overlay", MARKERS["P2P overlay"])
+    if s.startswith("ca-"):            return ("collaboration / AS", MARKERS["collaboration / AS"])
+    if s.startswith(("email", "wiki", "sx", "College")): return ("email / Q&A / wiki", MARKERS["email / Q&A / wiki"])
+    if s.startswith(("web", "cnr")):   return ("web crawl", MARKERS["web crawl"])
+    if s.startswith(("soc", "loc", "cit", "com", "amazon")): return ("social / citation", MARKERS["social / citation"])
+    return ("other", MARKERS["other"])
 
 xs = np.logspace(np.log10(ms.min()), np.log10(ms.max()), 100)
 plt.figure(figsize=(5.4, 3.7))
 seen = set()
 for m, t, nm in zip(ms, ts, names):
-    lab, col = fam(nm)
-    plt.loglog(m, t, "o", color=col, ms=6, label=lab if lab not in seen else None); seen.add(lab)
+    lab, mk = fam(nm)
+    plt.loglog(m, t, mk, color="black", ms=5.5, mfc="none" if mk not in ("*", "P", "X") else "black",
+               label=lab if lab not in seen else None); seen.add(lab)
 plt.loglog(xs, 10 ** a * xs ** p, "-", color="black", lw=1.3, alpha=.85,
            label=f"full corpus: $t\\propto m^{{{p:.2f}}}$")
 xb = np.logspace(5, np.log10(ms.max()), 60)

@@ -30,18 +30,18 @@ pN, aN = fit(N[:, 0], N[:, 1]); pU, aU = fit(U[:, 0], U[:, 1]); pC, aC = fit(C[:
 xs = np.logspace(np.log10(ms.min()), np.log10(ms.max()), 100)
 mstar = 10 ** ((aC - aN) / (pN - pC))           # NLF vs (fair) CHOLMOD crossover
 
-plt.figure(figsize=(5.4, 3.7))
-plt.loglog(N[:, 0], N[:, 1], "o", color="#1f77b4", ms=6, label=f"NLF (near-linear)  ($m^{{{pN:.2f}}}$)")
-plt.loglog(C[:, 0], C[:, 1], "^", color="#d62728", ms=6, label=f"CHOLMOD$+$METIS  ($m^{{{pC:.2f}}}$)")
-plt.loglog(U[:, 0], U[:, 1], "s", color="#ff7f0e", ms=6, label=f"UMFPACK$+$COLAMD  ($m^{{{pU:.2f}}}$)")
-plt.loglog(xs, 10 ** aN * xs ** pN, "-", color="#1f77b4", lw=1.3, alpha=.85)
-plt.loglog(xs, 10 ** aC * xs ** pC, "--", color="#d62728", lw=1.1, alpha=.7)
-plt.loglog(xs, 10 ** aU * xs ** pU, ":", color="#ff7f0e", lw=1.1, alpha=.7)
+plt.figure(figsize=(5.4, 3.7))                  # B/W-printable: distinguish series by marker+linestyle only
+plt.loglog(N[:, 0], N[:, 1], "o", color="black", ms=6, label=f"NLF (near-linear)  ($m^{{{pN:.2f}}}$)")
+plt.loglog(C[:, 0], C[:, 1], "^", color="black", ms=6, label=f"CHOLMOD$+$METIS  ($m^{{{pC:.2f}}}$)")
+plt.loglog(U[:, 0], U[:, 1], "s", color="black", ms=6, label=f"UMFPACK$+$COLAMD  ($m^{{{pU:.2f}}}$)")
+plt.loglog(xs, 10 ** aN * xs ** pN, "-", color="black", lw=1.3, alpha=.85)
+plt.loglog(xs, 10 ** aC * xs ** pC, "--", color="black", lw=1.1, alpha=.7)
+plt.loglog(xs, 10 ** aU * xs ** pU, ":", color="black", lw=1.1, alpha=.7)
 # mark the OOM walls: the OOM occurs at the next size (= 2x the last completed m) for each direct solver
-for P, col, lab in ((U, "#ff7f0e", "UMFPACK\nOOM"), (C, "#d62728", "CHOLMOD\nOOM")):
+for P, lab in ((U, "UMFPACK\nOOM"), (C, "CHOLMOD\nOOM")):
     mwall = 2 * P[-1, 0]
-    plt.axvline(mwall, color=col, ls=":", lw=1, alpha=.6)
-    plt.text(mwall * 1.04, P[:, 1].min() * 1.4, lab, fontsize=7.5, color=col)
+    plt.axvline(mwall, color="black", ls=":", lw=1, alpha=.5)
+    plt.text(mwall * 1.04, P[:, 1].min() * 1.4, lab, fontsize=7.5, color="black")
 plt.xlabel("edges $m$"); plt.ylabel("equilibrium solve time (s)")
 plt.legend(fontsize=8, loc="upper left"); plt.grid(True, which="both", ls=":", alpha=.4)
 plt.tight_layout()

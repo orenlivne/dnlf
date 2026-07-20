@@ -1,0 +1,84 @@
+\documentclass[10pt]{article}
+\usepackage[letterpaper,margin=0.9in]{geometry}
+\usepackage{times}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.25\baselineskip}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=1.5em}
+
+\begin{document}
+
+Oren E. Livne\\
+Pine Birch Analytics\\
+Churchville, PA\\
+\href{mailto:oren.livne@gmail.com}{oren.livne@gmail.com}
+
+\vspace{0.3em}
+\today
+
+\vspace{0.3em}
+Editor-in-Chief\\
+INFORMS Journal on Computing
+
+\vspace{0.3em}
+Dear Editor,
+
+I am pleased to submit my manuscript, ``A Near-Linear-Time Solver for Bilevel Congestion Network Design via
+Directed Nonlinear Laplacian Flow,'' for consideration as a Research Article in INFORMS Journal on Computing.
+
+\textbf{The problem.} Bilevel network design---computing tolls, capacity expansions, or routing incentives
+that minimize total system travel time subject to a user-equilibrium response---has been understood at the
+level of sensitivity analysis since Tobin and Friesz (1988): the design gradient reduces to one
+linearized-equilibrium solve per Newton step, independent of the number of design variables. In principle this
+makes gradient-based bilevel design exact and scalable. In practice it has not been, because that sensitivity
+solve is itself a direct factorization of the equilibrium Jacobian, and direct factorization grows
+superlinearly on the irregular, poorly-separable networks that selfish-routing and congestion-pricing
+applications actually present---road networks with hub-like structure, communication and overlay networks,
+peer-to-peer topologies. The result is a one-to-two-order-of-magnitude gap between how large a network we can
+\emph{solve} for equilibrium and how large a network we can \emph{design} for, even though the underlying
+mathematics says the two should cost about the same.
+
+\textbf{The bridge.} This paper closes that gap by recognizing that the directed user equilibrium, written as a
+source-form nonlinear Laplacian flow, has a Newton Jacobian that remains a symmetric weighted graph Laplacian
+on the active subgraph---despite the one-sided, rectified congestion law that traffic and communication
+routing actually obeys. That one structural fact is the bridge between the transportation application and the
+algorithmic core: it means every solve the bilevel design loop needs---the forward equilibrium \emph{and} the
+design adjoint---reduces to a short sequence of near-linear-time Laplacian solves, using the same class of
+combinatorial multigrid and approximate-Cholesky solvers that have transformed large-scale spectral graph
+algorithms over the last decade. A smoothing homotopy in the dead-zone width handles the one complication (the
+rectified law's ill-conditioning and shifting active set) without sacrificing that near-linear cost.
+
+\textbf{Why I believe this belongs in IJOC.} The contribution is squarely at the intersection IJOC serves: a
+computational bottleneck in a classical OR problem (bilevel congestion pricing / network design), diagnosed
+precisely as a linear-algebra scaling issue, and resolved with near-linear numerical methods, validated with
+the rigor a computing-focused readership expects rather than asserted from theory alone:
+
+\begin{itemize}
+\item The forward-solve scaling is confirmed on a topology-diverse corpus of 96 real irregular graphs spanning
+four orders of magnitude ($1.1\times10^4$ to $6.0\times10^6$ arcs) drawn from SuiteSparse/SNAP, LAW, DIMACS10,
+and Newman, not just a single synthetic family.
+\item The comparison against direct factorization is a fair fight, not a strawman: alongside the standard
+unsymmetric UMFPACK/COLAMD baseline, I benchmark against CHOLMOD under a METIS nested-dissection
+ordering---the theoretically appropriate direct solver for the symmetric positive-definite Jacobian this
+problem produces---and show the near-linear solver still wins with a widening margin, and completes at network
+sizes where even that stronger direct solver exhausts memory.
+\item The framework extends to multicommodity logit stochastic user equilibrium, validated on the Sioux Falls
+and Anaheim benchmark networks with their published origin--destination matrices, where destination-bundled
+toll design reduces total system travel time by $7.7$--$13.1\%$.
+\item Every experiment is reproducible: code, unit tests, and reproduction scripts are publicly available at
+\url{https://github.com/orenlivne/dnlf}, and I have prepared the accompanying software/data archive per IJOC's
+reproducibility requirements.
+\end{itemize}
+
+We are candid about scope: the advantage is specific to poorly-separable, non-planar topologies---on
+near-planar road networks, where nested dissection is already near-optimal, the method does not win. I
+believe this framing, together with the depth of the empirical validation, makes the paper a good fit for
+IJOC's standards. Thank you for your consideration.
+
+Sincerely,\\*
+Oren E. Livne
+
+\end{document}

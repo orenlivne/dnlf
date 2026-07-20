@@ -25,29 +25,27 @@ via Directed Nonlinear Laplacian Flow}
 \AFF{Pine Birch Analytics, Churchville, PA, \EMAIL{oren.livne@gmail.com}}
 }
 \ABSTRACT{
-Bilevel traffic network design---optimizing link tolls or capacities over a lower-level user
-equilibrium---is the workhorse formulation of congestion pricing, capacity planning, and origin--destination
-calibration. It is nonconvex and \emph{NP}-hard, and every practical method solves it by an outer optimization
-whose each step requires a lower-level equilibrium solve together with an equilibrium sensitivity. The
-sensitivity has been computed since Tobin and Friesz (1988) by factorizing the equilibrium Jacobian once and
-back-substituting per design variable, so its cost is already independent of the number of design variables;
-the remaining bottleneck is that this factorization grows superlinearly (fill-dominated) in the size of the active subnetwork, which caps
-exact design methods near a hundred links while forward assignment reaches metropolitan scale.
-We remove that bottleneck. We show that the directed user equilibrium with separable costs is a
-source-form nonlinear Laplacian flow (NLF) $B\rho(B^\top\phi-\tau)=d$ whose Newton Jacobian, despite the
-one-sided (rectified) edge law, remains a symmetric weighted graph Laplacian on the active subgraph.
-Consequently the whole solve---forward equilibrium and adjoint design gradient---reduces to a short
-sequence of near-linear-time Laplacian solves. The one obstacle, that the rectified dead zone makes the Jacobian
-ill-conditioned and its active set change during a solve, is handled by a smoothing homotopy in a dead-zone
-width $\delta$ whose fine schedule keeps each level a small, well-conditioned perturbation, followed by a
-single exact-law polish. On Sioux Falls, NLF matches Frank--Wolfe, the adjoint matches finite differences, and
-toll design matches the best scaled marginal-cost (Pigouvian) toll to within near-stationarity. The wall-clock scales near-linearly in the edge count---confirmed on a corpus of $96$ real irregular graphs up to $6\times10^6$ arcs---while direct factorizations scale superlinearly, so on large irregular congestion networks NLF is faster for graphs of $\approx 10,000$ arcs or more, and reaches sizes where direct factorization exhausts memory. The design inherits this
-near-linear per-step cost. On near-planar road networks, where nested-dissection factorization is already
-near-optimal, NLF does not win; the advantage is on poorly-separable networks, e.g., selfish
-routing. We extend the framework to the multicommodity logit stochastic user equilibrium, where a
-block-diagonal preconditioner solves the coupled block-Laplacian Newton system in single- to low-double-digit
-iterations and the design adjoint again returns all toll gradients in one solve; on the Sioux Falls and Anaheim
-road networks, destination-bundled design cuts total system travel time by $7.7$--$13.1\%$. Code is available at \url{https://github.com/orenlivne/dnlf}.
+Bilevel traffic network design---optimizing tolls or capacities over a lower-level user
+equilibrium---is nonconvex and NP-hard; every practical method requires, at each outer step, an
+equilibrium solve and an equilibrium sensitivity. The sensitivity has been near-linear in the number
+of design variables since Tobin and Friesz (1988), but computing it requires factorizing the
+equilibrium Jacobian, and that factorization grows superlinearly with network size, capping exact
+design methods near a hundred links while forward assignment reaches metropolitan scale.
+We remove that bottleneck. The directed user equilibrium with separable costs is a source-form
+nonlinear Laplacian flow (NLF) $B\rho(B^\top\phi-\tau)=d$ whose Newton Jacobian, despite the one-sided
+rectified edge law, remains a symmetric weighted graph Laplacian on the active subgraph. Both the
+forward equilibrium and the adjoint design gradient therefore reduce to near-linear-time Laplacian
+solves, via a smoothing homotopy that handles the rectified law's ill-conditioning. On Sioux Falls,
+NLF matches Frank--Wolfe and finite-difference sensitivities, and toll design matches
+the best scaled marginal-cost toll. Confirmed on a corpus of $96$ real irregular graphs up to
+$6\times10^6$ arcs, NLF's wall-clock scales near-linearly while direct factorization scales
+superlinearly and exhausts memory at large scale; NLF wins beyond about $10{,}000$ arcs. The
+advantage is specific to poorly-separable networks (e.g., selfish routing); on near-planar road
+networks, nested dissection is already near-optimal. We extend the framework to multicommodity logit
+stochastic user equilibrium, where a block-diagonal preconditioner solves the coupled Newton system
+in single- to low-double-digit iterations and the adjoint returns all toll gradients in one solve;
+on Sioux Falls and Anaheim, destination-bundled design cuts total system travel time by
+$7.7$--$13.1\%$. Code is available at \url{https://github.com/orenlivne/dnlf}.
 }
 
 \KEYWORDS{network design; traffic assignment; user equilibrium; bilevel optimization; nonlinear Laplacian
